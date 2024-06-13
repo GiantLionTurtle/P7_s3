@@ -19,6 +19,7 @@ Note: there are
 
 ### ServoMotor
 > servo.write(angle);
+
 where angle is \[0, 180\], in degrees
 
 Note: You need to attach a pin to your servo object with servo.attach(SERVOPIN)
@@ -62,13 +63,16 @@ Why did you unplug it
 ## I just want to copy and paste the requirements...
 ### Top of code
 > \# define POTPIN 7
+> 
 > \# define SERVOPIN 2
 
 ### Objects (below your \# define stuff)
 > MegaServo servo;
+> 
 > ArduinoX AX;
 
 ### In setup() 
 > AX.init();
+> 
 > servo.attach(SERVOPIN);
 
