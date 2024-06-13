@@ -55,7 +55,7 @@ You'll need those:
 - Red -> 5V
 - White -> pin A7 (Arduino pins), in the Analog In section
 
-Note: The Grove connectors' for analog input's Vcc is whack, don't use them.
+Note: The Grove connectors for analog input's Vcc is whack, don't use them.
 
 ### The rest
 Why did you unplug it
