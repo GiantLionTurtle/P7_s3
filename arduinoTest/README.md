@@ -4,10 +4,12 @@ This is a bunch of code to test the inputs/outputs associated with the motors / 
 ## How do I get stuff to work?
 ### Motor
 > AX.setMotorPWM(motorID, value);
+
 where motorID is probably 0, and value \[-1, 1\]
 
 ### Motor encoder
 > int value = AX.readResetEncoder(motorID);
+
 where motorID is probably 0
 
 Note: there are 
@@ -23,6 +25,7 @@ Note: You need to attach a pin to your servo object with servo.attach(SERVOPIN)
 
 ### Potentiometer
 > double value = analogRead(POTPIN);
+
 where value will be \[0, 1024\]
 
 To get a value in degrees:
