@@ -2,6 +2,8 @@
 
 #include "Command.hpp"
 
+#include <Arduino.h>
+
 float Command::get_torque(unsigned int currTime_ms) const
 {
   if(currTime_ms > startTime_ms + COMMAND_DURATION_MS) { // Invalid time stamp
