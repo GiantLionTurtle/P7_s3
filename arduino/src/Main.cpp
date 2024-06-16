@@ -1,22 +1,88 @@
 
 #include "Command.hpp"
+#include "TicksWrapper.hpp"
+#include "PotWrapper.hpp"
+#include "BoundingBox.hpp"
+#include "State.hpp"
+
+#include <ArduinoJson.h> // librairie de syntaxe JSON
+#include <SPI.h> // librairie Communication SPI
+#include <LibS3GRO.h>
 
 #define BAUD_RATE 115200
 
 #define MSG_SEND_INTERVAL 50 // ms
+#define DROP_DELAY 200 // ms
+#define TAKE_DELAY 1000 // ms
+#define PENDULUMSPEED_STABILIZED 0.02
+
+#define PENDULUMPOT_PIN 4
+#define CLAWSERVO_PIN 8
+
+// Modelisation
+
+const double pendulumLength = 0.4; // m
+const double railHeight = 1.0; // m
+const double wheelRadius = 0.1; // m
+const double ticksPerTurn = 50.0*3200;
+
+const double obstaclePos = 0.5;
+
+const double stabilization_coeff = -0.2;
+const double pendulumSpeed_stabilized = 0.02; // rad/s
+
+const double homePos = 0.0;
+
+const double maxTorque = 2;
+
+const int clawOpen_angle = 0;
+const int clawClosed_angle = 180;
+
+BoundingBox sendItBox(Position(obstaclePos-0.1, 0.2), Position(obstaclePos+0.2, 0.1));
+BoundingBox dropBox(Position(obstaclePos+0.2, 0.2), Position(obstaclePos+0.5, 0.0));
+BoundingBox homeBox(Position(homePos-0.05, 0.2), Position(homePos+0.05, 0.0));
+
+
+// !Modelisation
 
 ArduinoX AX_;                       // objet arduinoX
 MegaServo servo_;                   // objet servomoteur
-VexQuadEncoder vexEncoder_;         // objet encodeur vex
 IMU9DOF imu_;                       // objet imu
 PID pid_;                           // objet PID
+MegaServo clawServo_;
+
+Position EOTPos;
+
+PotWrapper pendulumPot(-2.35619449, 2.35619449); // -135 to 135 deg
+TicksWrapper wheelTicks(wheelRadius*2*PI/(ticksPerTurn), obstaclePos);
 
 unsigned int last_send_time_ms = 0;
+unsigned int state_start_ms = 0; // Point in time when the current state was set
 
 Command command;
+State state { State::ReturnHome };
 
+// Function that gets called at the end of the loop if
+// a message is received on the serial buffer
+// it updates the command given to the pid
+// as well as other parameters
 void serialEvent();
+// Sends info to the raspberry pi so that it 
+// can perform simulations and update the command
 void sendMsg();
+// Update the position of the pincer in the plane
+// under the rail
+void update_eot();
+// Returns the motor pwm value used to
+// damp-out the pendulum motion
+double stabilize();
+
+// Updates the state machine given 
+// the current positions of things and stuff
+void update_state();
+// Sets the state machine and 
+// sets flags
+void set_state(State st);
 
 void setup()
 {
@@ -24,10 +90,9 @@ void setup()
 
   AX_.init();                       // initialisation de la carte ArduinoX 
   imu_.init();                      // initialisation de la centrale inertielle
-  vexEncoder_.init(2,3);            // initialisation de l'encodeur VEX
-  // attache de l'interruption pour encodeur vex
-  attachInterrupt(vexEncoder_.getPinInt(), []{vexEncoder_.isr();}, FALLING);
-  
+  pinMode(PENDULUMPOT_PIN, INPUT);
+  clawServo_.attach(CLAWSERVO_PIN);
+
   // Initialisation du PID
   pid_.setGains(0.25,0.1 ,0);
   // Attache des fonctions de retour
@@ -35,7 +100,7 @@ void setup()
   pid_.setPeriod(200);
 
   pid_.setMeasurementFunc([]() -> double { return 0.0; });
-  pid_.setCommandFunc([](double pwm){ AX_.setMotorPWM(0, -pwm); });
+  pid_.setCommandFunc([](double pwm){ AX_.setMotorPWM(0, pwm); });
 }
 
 void loop()
@@ -45,7 +110,34 @@ void loop()
     last_send_time_ms = millis();
   }
 
-  pid_.setGoal(command.get_torque(millis()));
+  switch(state) {
+  case State::Swinging:
+    pid_.setGoal(command.get_torque(millis()));
+    break;
+  case State::ReturnHome:
+    AX_.setMotorPWM(0, wheelTicks.position() < homePos ? 0.1 : -0.1);
+    break;
+  case State::Stabilize:
+    AX_.setMotorPWM(0, stabilize());
+    break;
+  case State::TakingTree:
+    AX_.setMotorPWM(0, 0.0);
+    if(millis()-state_start_ms < TAKE_DELAY/2) {
+      clawServo_.write(clawOpen_angle);
+    } else {
+      clawServo_.write(clawClosed_angle);
+    }
+    break;
+  case State::Drop:
+    clawServo_.write(clawOpen_angle);
+    break;
+  case State::JustGonnaSendIt:
+    pid_.setGoal(maxTorque);
+    break;
+  }
+
+  pendulumPot.update(analogRead(PENDULUMPOT_PIN));
+  wheelTicks.update(AX_.readEncoder(0));
 
   // Mise a jour du pid
   pid_.run();
@@ -67,11 +159,6 @@ void serialEvent()
     Serial.print("deserialize() failed: ");
     Serial.println(error.c_str());
     return;
-  }
-
-  parse_msg = doc["RunForward"];
-  if(!parse_msg.isNull()) {
-     RunForward_ = parse_msg;
   }
 
   parse_msg = doc["setPID"];
@@ -105,21 +192,91 @@ void sendMsg()
   // Elements du message
 
   doc["time"] = millis();
-  doc["encVex"] = vexEncoder_.getCount();
+  doc["pendulumPot"] = pendulumPot.position();
+  doc["dpendulumPot"] = pendulumPot.speed();
   doc["goal"] = pid_.getGoal();
   doc["voltage"] = AX_.getVoltage();
   doc["current"] = AX_.getCurrent(); 
   doc["accelX"] = imu_.getAccelX();
   doc["accelY"] = imu_.getAccelY();
   doc["accelZ"] = imu_.getAccelZ();
-  doc["gyroX"] = imu_.getGyroX();
-  doc["gyroY"] = imu_.getGyroY();
-  doc["gyroZ"] = imu_.getGyroZ();
+  doc["dwheel"] = wheelTicks.speed();
+  
+
   doc["isGoal"] = pid_.isAtGoal();
   doc["actualTime"] = pid_.getActualDt();
+  doc["state"] = static_cast<int>(state);
+  doc["voltage"] = AX_.getVoltage();
+  doc["current"] = AX_.getCurrent();
 
   // Serialisation
   serializeJson(doc, Serial);
   // Envoit
   Serial.println();
+}
+double stabilize()
+{
+  return stabilization_coeff * pendulumPot.speed();
+}
+void update_eot()
+{
+  EOTPos.x = wheelTicks.position() + sin(pendulumPot.position()) * pendulumLength;
+  EOTPos.y = railHeight - cos(pendulumPot.position()) * pendulumLength;
+}
+void update_state()
+{
+  switch(state) {
+  case State::Stabilize:
+    if(pendulumPot.speed() < PENDULUMSPEED_STABILIZED) {
+      set_state(State::ReturnHome);
+    }
+    break;
+  case State::ReturnHome:
+    if(homeBox.contains(EOTPos)) {
+      set_state(State::Ready);
+    }
+    break;
+  case State::TakingTree:
+    if(millis() - state_start_ms > TAKE_DELAY) {
+      set_state(State::Swinging);
+    }
+    break;
+  case State::Swinging:
+    if(sendItBox.contains(EOTPos)) {
+      set_state(State::JustGonnaSendIt);
+    }
+    break;
+  case State::JustGonnaSendIt:
+    if(dropBox.contains(EOTPos)) {
+      set_state(State::Drop);
+    }
+    break;
+  case State::Drop:
+    if(millis() - state_start_ms > DROP_DELAY) {
+      set_state(State::Stabilize);
+    }
+    break;
+  default:
+    break;
+  }
+}
+void set_state(State newState)
+{
+  if(state == State::ReturnHome) {
+    AX_.setMotorPWM(0, 0.0);
+  }
+  switch(newState) {
+  case State::Ready:
+  case State::Stabilize:
+  case State::Swinging:
+  case State::JustGonnaSendIt:
+  case State::Drop:
+    pid_.enable();
+    break;
+  case State::ReturnHome:
+    pid_.disable();
+    break;
+  }
+  state = newState;
+  state_start_ms = millis();
 }

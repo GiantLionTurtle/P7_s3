@@ -14,22 +14,25 @@
 #define LM_EPS2 1e-12
 #define LM_EPS3 1e-24
 
+// Driving function of the simulation
+// we want the effector angle to follow 
+// this function
 double sim_func(double t)
 {
   using std::numbers::pi;
   return AMP/TT * t * std::sin(2*pi/TT*COEFF*t);
 }
+// Derivative of previous function 
 double sim_deri(double t)
 {
   using std::numbers::pi;
   return AMP/(TT*TT) * (TT*sin(2*pi*COEFF*t/TT) + 2*pi*COEFF*t*cos(2*pi*COEFF*t/TT));
 }
 
+// LM solver to find the closest zero to the hint time at an offset
 double solve(double hint, double zero_off, double eps1 = LM_EPS1, double eps2 = LM_EPS2, double eps3 = LM_EPS3)
 {
   // http://users.ics.forth.gr/~lourakis/levmar/levmar.pdf
-  using std::pow;
-  double k = 0;
   double v = 2.0;
   double p = hint;
 
@@ -37,7 +40,6 @@ double solve(double hint, double zero_off, double eps1 = LM_EPS1, double eps2 = 
   double A = J*J;
   double Ep = zero_off - sim_func(p);
   double g = J * Ep;
-  // std::cout<<"g="<<g<<"\n";
 
   bool stop = std::abs(g) <= eps1;
   double mu = 1e-3*A;
@@ -73,6 +75,8 @@ double solve(double hint, double zero_off, double eps1 = LM_EPS1, double eps2 = 
   }
   return p;
 }
+
+// Finds the relative error between two values
 double rel_error(double attempt, double target)
 {
   double abs_error = attempt - target;
@@ -84,6 +88,10 @@ bool match_ok(double match, double angle, double angvel)
 {
   return (rel_error(sim_func(match), angle) <= 0.01 && rel_error(sim_deri(match), angvel) <= ANGVEL_REL_ERROR);
 }
+
+// Tries to find the closest point on the simulation path to the actual angle/angular velocity pair
+// by solving repeatedly with time hints that go further and further away
+// from the initial time hint
 double simMatch(double angle, double angular_vel, double time_hint, double total_period, bool& success)
 {
   double match = solve(time_hint, angle);
