@@ -3,13 +3,11 @@
 #include "TicksWrapper.hpp"
 #include "PotWrapper.hpp"
 #include "BoundingBox.hpp"
-#include "State.hpp"
+#include "../../common_rpiarduino/Common.hpp"
 
 #include <ArduinoJson.h> // librairie de syntaxe JSON
 #include <SPI.h> // librairie Communication SPI
 #include <LibS3GRO.h>
-
-#define BAUD_RATE 115200
 
 #define MSG_SEND_INTERVAL 50 // ms
 #define DROP_DELAY 200 // ms
@@ -161,11 +159,10 @@ void serialEvent()
     return;
   }
 
-  parse_msg = doc["setPID"];
+  parse_msg = doc["PIDGains"];
   if(!parse_msg.isNull()) {
     pid_.disable();
     pid_.setGains(parse_msg[0], parse_msg[1], parse_msg[2]);
-    pid_.setEpsilon(parse_msg[3]);
     pid_.enable();
   }
 
@@ -176,13 +173,20 @@ void serialEvent()
       return;
     command.startTime_ms = parse_msg.as<unsigned int>();
 
-    parse_msg = doc["command"]["torques"];
+    parse_msg = doc["command"]["accels"];
     if(parse_msg.isNull())
       return;
 
-    for(int i = 0; i < N_TORQUE_SAMPLES; ++i) {
+    for(int i = 0; i < N_ACCELS_SAMPLES; ++i) {
       command.Tm[i] = parse_msg[i];
     }
+  }
+
+  // Analyse des éléments du message message
+  parse_msg = doc["state"];
+  if(!parse_msg.isNull()){
+     state = doc["state"].as<int>();
+     lastStateSend = millis();
   }
 }
 void sendMsg()
@@ -192,16 +196,15 @@ void sendMsg()
   // Elements du message
 
   doc["time"] = millis();
+  doc["goal"] = pid_.getGoal();
+
+  doc["wheel"] = wheelTicks.position();
+  doc["dwheel"] = wheelTicks.speed();
+  doc["ddwheel"] = wheelTicks.accel();
+  doc["dlin"] = wheelTicks.speed() * WHEEL_TO_LIN;
+
   doc["pendulumPot"] = pendulumPot.position();
   doc["dpendulumPot"] = pendulumPot.speed();
-  doc["goal"] = pid_.getGoal();
-  doc["voltage"] = AX_.getVoltage();
-  doc["current"] = AX_.getCurrent(); 
-  doc["accelX"] = imu_.getAccelX();
-  doc["accelY"] = imu_.getAccelY();
-  doc["accelZ"] = imu_.getAccelZ();
-  doc["dwheel"] = wheelTicks.speed();
-  
 
   doc["isGoal"] = pid_.isAtGoal();
   doc["actualTime"] = pid_.getActualDt();

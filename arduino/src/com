@@ -1,0 +1,91 @@
+
+#include <ArduinoJson.h> // librairie de syntaxe JSON
+#include <Arduino.h>
+#include <string.h>
+#include <LibS3GRO.h>
+
+#define POTPIN 7
+
+// Objects
+MegaServo servo;
+// ArduinoX AX;
+// IMU9DOF imu;
+
+
+double accelx;
+int potval = 0;
+int state = 0;
+unsigned long long int lastStateSend = 0;
+
+void setup() 
+{
+  Serial.begin(115200);
+  // init ArduinoX
+  // AX.init();
+  pinMode(POTPIN, INPUT);
+
+  // // Define Servo pin
+  servo.attach(2);
+
+  // // imu.init();
+  
+}
+
+void sendMsg();
+void serialEvent();
+
+void loop() 
+{ 
+  potval = analogRead(POTPIN);
+  // servo.write((potval/1024)*180);
+  servo.write(map(potval, 0, 1023, 0, 180));
+
+  // // Various prints
+  // Serial.println(potval);
+
+  // Serial.println("Boop");
+  sendMsg();
+  delay(100);
+
+  if(millis() - lastStateSend > 2000) {
+    lastStateSend = millis();
+    state++;
+    state %= 7;
+  } 
+}
+
+void sendMsg()
+{
+  /* Envoit du message Json sur le port seriel */
+  StaticJsonDocument<500> doc;
+  // Elements du message
+
+  doc["time"] = millis();
+  doc["pot_vex"] = potval;
+
+
+  doc["state"] = state;
+
+  // Serialisation
+  serializeJson(doc, Serial);
+  // Envoit
+  Serial.println();
+}
+void serialEvent()
+{
+  // Lecture du message Json
+  StaticJsonDocument<500> doc;
+  JsonVariant parse_msg;
+
+  // Lecture sur le port Seriel
+  DeserializationError error = deserializeJson(doc, Serial);
+  // Si erreur dans le message
+
+  if (error) {
+    Serial.print("deserialize() failed: ");
+    Serial.println(error.c_str());
+    return;
+  }
+  
+
+}

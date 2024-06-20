@@ -12,7 +12,7 @@ float Command::get_torque(unsigned int currTime_ms) const
 
   unsigned int rel_time_ms = currTime_ms - startTime_ms;
 
-  float sample = static_cast<float>(rel_time_ms) / static_cast<float>(COMMAND_DURATION_MS / N_TORQUE_SAMPLES);
+  float sample = static_cast<float>(rel_time_ms) / static_cast<float>(COMMAND_DURATION_MS / N_ACCELS_SAMPLES);
   unsigned int upper = ceil(sample);
   unsigned int lower = floor(sample);
 
