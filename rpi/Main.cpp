@@ -1,15 +1,13 @@
-#include "Simulation.hpp"
+#include "Simulation_V2.hpp"
 
 
 int main()
 {
-    Simulation simu;
-    double Torque[100];
-    simu.Simulation::Simulate(0, 0.04, Torque);
+    Simulation_V2 simu(0.04);
+    std::vector<double> Sequence = simu.RunSimulation(0, 1.4, 100, 0, 0);
 
-    for(double T:Torque)
+    for(auto s : Sequence)
     {
-        std::cout << T << "\n";
+      std::cout << s << "\n";
     }
-    return 0;
 }
