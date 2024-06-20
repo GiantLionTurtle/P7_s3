@@ -19,13 +19,13 @@
 // this function
 double sim_func(double t)
 {
-  using std::numbers::pi;
+  double pi = 3.1415;
   return AMP/TT * t * std::sin(2*pi/TT*COEFF*t);
 }
 // Derivative of previous function 
 double sim_deri(double t)
 {
-  using std::numbers::pi;
+  double pi = 3.1415;
   return AMP/(TT*TT) * (TT*sin(2*pi*COEFF*t/TT) + 2*pi*COEFF*t*cos(2*pi*COEFF*t/TT));
 }
 

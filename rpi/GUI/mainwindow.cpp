@@ -11,8 +11,9 @@
 
 #include <iostream>
 
-MainWindow::MainWindow(QString portName, int updateRate, QWidget *parent) :
-    QMainWindow(parent)
+MainWindow::MainWindow(QString portName, int updateRate, QWidget *parent)
+  : QMainWindow(parent)
+  , simulation(1.0)
 {
   // Initialisation du UI
   ui = new Ui::MainWindow;
@@ -21,15 +22,12 @@ MainWindow::MainWindow(QString portName, int updateRate, QWidget *parent) :
 
     // Fonctions de connections events/slots
   connectTimers(updateRate);
-  connectCheckBoxRead();
-  connectElectroaimantButton();
-  connectSpinBoxes();
   connectPlotBoxe();  // activation du plot, mettre en commentaire si pas utilise
   // Serial protocole
   serialCom = new SerialProtocol(portName, BAUD_RATE);
   connectSerialPortRead();
 
-  connectComboBoxe();
+  connectComboBox();
   connectSliders();
 }
 
@@ -61,8 +59,9 @@ void MainWindow::receiveFromSerial(QString msg) {
       ui->textBrowser->setText(buff.mid(2,buff.length()-4));
 
       if(!jsonObj["state"].isNull()) {
-        arduino_model.state = jsonObj["state"].toInt();
-        ui->statebox->setCurrentIndex(arduino_model.state);
+        int stateint = jsonObj["state"].toInt();
+        arduino_model.state = static_cast<State>(stateint);
+        ui->statebox->setCurrentIndex(stateint);
       }
       if(!jsonObj["time"].isNull()) {
         arduino_model.time_ms = jsonObj["time"].toInt();
@@ -89,7 +88,7 @@ void MainWindow::onPeriodicUpdate()
 {
   if(arduino_model.state == State::Swinging) {
     unsigned long int est_simulation_time = last_simulation_time + (last_arduino_time-arduino_model.time_ms);
-    double timeHint = static_cast<double>(est_simulation_time) / 1000.0
+    double timeHint = static_cast<double>(est_simulation_time) / 1000.0;
 
     bool match_success;
     double simTime = simMatch(arduino_model.pendulum_angle, arduino_model.pendulum_dangle,
@@ -102,7 +101,8 @@ void MainWindow::onPeriodicUpdate()
     }
 
     // std::vector<double> accels = simulation.get_accels(simTime, );
-    sendCommand({});
+    double duration_s = static_cast<double>(COMMAND_DURATION_MS) / 1000.0;
+    sendCommand(simulation.RunSimulation(simTime, duration_s, N_ACCELS_SAMPLES, arduino_model.wheelAngSpeed, arduino_model.linSpeed));
   }
 }
 
@@ -116,18 +116,6 @@ void MainWindow::connectTimers(int updateRate)
   updateTimer_.start(updateRate);
 }
 
-void MainWindow::connectCheckBoxRead() 
-{
-  // Fonction de connection de la checkbox
-  connect(ui->checkBox, &QCheckBox::toggled, [this](bool state) {
-    // Requete d'envoie periodique du Arduino
-    if (state){
-        serialCom->sendMessage("{\"read\": \"true\"}");
-    } else{
-        serialCom->sendMessage("{\"read\": \"false\"}");
-    }
-  });
-}
 void MainWindow::connectSerialPortRead() 
 {
   // Fonction de connection au message de la classe (serialProtocol)
@@ -148,20 +136,16 @@ void MainWindow::connectComboBox()
 }
 void MainWindow::connectSliders()
 {
-  connect(ui->PID_p, SIGNAL(valueChanged(), this, SLOT(setPID())));
-  connect(ui->PID_i, SIGNAL(valueChanged(), this, SLOT(setPID())));
-  connect(ui->PID_d, SIGNAL(valueChanged(), this, SLOT(setPID()))); 
+  connect(ui->PID_p, SIGNAL(valueChanged()), this, SLOT(setPID()));
+  connect(ui->PID_i, SIGNAL(valueChanged()), this, SLOT(setPID()));
+  connect(ui->PID_d, SIGNAL(valueChanged()), this, SLOT(setPID())); 
 }
 
 void MainWindow::sendCommand(std::vector<double> accels)
 { 
-  QJsonObject jsonObject {
-      {"set_des_vel", value}
-  };
-  QString command_str = "\"command\": {
-    \"startTime\":" + QString::number(arduin_model.time_ms) + ",\"accels\":[";
+  QString command_str = "\"command\": {\"startTime\":" + QString::number(arduino_model.time_ms) + ",\"accels\":[";
   for(size_t i = 0; i < accels.size(); ++i) {
-    command_str += QString::number(accel);
+    command_str += QString::number(accels[i]);
     if(i < accels.size()-1) {
       command_str += ",";
     } else {
@@ -194,7 +178,7 @@ void MainWindow::sendState(State state)
 void MainWindow::setPID()
 {
   serialCom->sendMessage("{\"PIDGains\":[" + 
-                      QString::number(static_cast<double>(ui->PID_p)/10.0) + ", " + 
-                      QString::number(static_cast<double>(ui->PID_i)/10.0) + ", " + 
-                      QString::number(static_cast<double>(ui->PID_d)/10.0) + "]}");
+                      QString::number(static_cast<double>(ui->PID_p->value())/10.0) + ", " + 
+                      QString::number(static_cast<double>(ui->PID_i->value())/10.0) + ", " + 
+                      QString::number(static_cast<double>(ui->PID_d->value())/10.0) + "]}");
 }

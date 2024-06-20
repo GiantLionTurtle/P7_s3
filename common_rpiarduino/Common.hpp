@@ -7,6 +7,6 @@
 #define N_ACCELS_SAMPLES 10
 
 // Must be kept in sync with rpi's State.hpp
-enum class State { Ready, Stabilize, ReturnHome, TakingTree, Swinging, JustGonnaSendIt, Drop };
+enum class State { Ready, Stabilize, ReturnHome, TakingTree, Swinging, JustGonnaSendIt, Drop, ShortCircuitForward, ShortCircuitBackward };
 
 #endif

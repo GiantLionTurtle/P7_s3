@@ -392,7 +392,7 @@ void Simulation_V2::CalculateOutput(double t, double Output[])
     Sequence.push_back(Output[1]);
 }
 
-char* Simulation_V2::MGIntegrator(std::function<char *(double, double *, double *, char)> eqns, int numY, double y[], double tStart, double *hEntry, double *hNext, double smallestAllowableStepsize, double absError, double relError)
+char* Simulation_V2::MGIntegrator(int numY, double y[], double tStart, double *hEntry, double *hNext, double smallestAllowableStepsize, double absError, double relError)
 {
     //std::cout <<"11: " << Tw << "\n";
     double f0[myNumberOfODES], f1[myNumberOfODES], f2[myNumberOfODES];
@@ -478,7 +478,7 @@ char* Simulation_V2::MGIntegrator(std::function<char *(double, double *, double 
     return errorMessage;
 }
 
-char *Simulation_V2::MGIntegrateOneStep(std::function<char *(double, double *, double *, char)> eqns, int numY, double y[], double *t, double tStepMax, double *stepsizeSuggested, double smallestAllowableStepsize, double absError, double relError)
+char *Simulation_V2::MGIntegrateOneStep(int numY, double y[], double *t, double tStepMax, double *stepsizeSuggested, double smallestAllowableStepsize, double absError, double relError)
 {
     //std::cout <<"9: " << Tw << "\n";
      double hAccumulated = 0;                      /* How far to tStepMax.    */
@@ -492,7 +492,7 @@ char *Simulation_V2::MGIntegrateOneStep(std::function<char *(double, double *, d
         /* Numerically integrate y[i] and maybe get a smaller value of h.     */
         /* Set hNext to integrator's estimate of next integration step-size.  */
         double hBeforeCall = h, hNext;             /* Suggested stepsize.     */
-        char* errorMessage = MGIntegrator( eqns, numY, y, *t, &h, &hNext, smallestAllowableStepsize, absError, relError );
+        char* errorMessage = MGIntegrator(numY, y, *t, &h, &hNext, smallestAllowableStepsize, absError, relError );
         if( errorMessage ) return errorMessage;    /* Integration failed      */
 
         /* Any time or function discontinuities should be handled here.       */
@@ -518,7 +518,7 @@ char *Simulation_V2::MGIntegrateOneStep(std::function<char *(double, double *, d
 
     /* Integration finished.  Calculate derivatives of y at final value of t */
     //std::cout <<"10: " << Tw << "\n";
-    return MGIntegrator( eqns, numY, y, *t, NULL, NULL, 0, 0, 0 );
+    return MGIntegrator(numY, y, *t, NULL, NULL, 0, 0, 0 );
 }
 
 char* Simulation_V2::MGIntegrateForwardOrBackward(int numVariables, double varArrayToIntegrate[], double OutputToFill[], double tInitial, double tFinal, double tStepMax, double absError, double relError, int printIntScreen, int printIntFile)
@@ -545,7 +545,7 @@ char* Simulation_V2::MGIntegrateForwardOrBackward(int numVariables, double varAr
         }
         /* Due to round-off or other, maybe set stepsizeSuggested = tStepMax. */
         else if( fabs(stepsizeSuggested) >= 0.99 * fabs(tStepMax) ) stepsizeSuggested = tStepMax;
-        errorMessage = MGIntegrateOneStep( std::bind(Simulation_V2::MGeqns, *this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4), numVariables, varArrayToIntegrate, &t, (isFirstCall ? 0 : tStepMax), &stepsizeSuggested, smallestAllowableStepsize, absError, relError );
+        errorMessage = MGIntegrateOneStep(numVariables, varArrayToIntegrate, &t, (isFirstCall ? 0 : tStepMax), &stepsizeSuggested, smallestAllowableStepsize, absError, relError );
         isIntegrationFinished = errorMessage  ||  (isIntegrateForward && t > tFinalMinusEpsilon)  ||  (!isIntegrateForward && t < tFinalMinusEpsilon);
         isPrintToScreen = printIntScreen  &&  (isIntegrationFinished || --printCounterScreen <= 0);
         isPrintToFile   = printIntFile    &&  (isIntegrationFinished || --printCounterFile   <= 0);

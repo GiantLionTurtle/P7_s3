@@ -14,8 +14,11 @@
 #define TAKE_DELAY 1000 // ms
 #define PENDULUMSPEED_STABILIZED 0.02
 
-#define PENDULUMPOT_PIN 4
+#define PENDULUMPOT_PIN A7
 #define CLAWSERVO_PIN 8
+#define FORWARD_PIN 28
+#define BACKWARD_PIN 29
+#define MOTOR_PIN 1
 
 // Modelisation
 
@@ -40,7 +43,6 @@ BoundingBox sendItBox(Position(obstaclePos-0.1, 0.2), Position(obstaclePos+0.2, 
 BoundingBox dropBox(Position(obstaclePos+0.2, 0.2), Position(obstaclePos+0.5, 0.0));
 BoundingBox homeBox(Position(homePos-0.05, 0.2), Position(homePos+0.05, 0.0));
 
-
 // !Modelisation
 
 ArduinoX AX_;                       // objet arduinoX
@@ -52,7 +54,7 @@ MegaServo clawServo_;
 Position EOTPos;
 
 PotWrapper pendulumPot(-2.35619449, 2.35619449); // -135 to 135 deg
-TicksWrapper wheelTicks(wheelRadius*2*PI/(ticksPerTurn), obstaclePos);
+TicksWrapper wheelTicks(2*PI/(ticksPerTurn * 1000.0), obstaclePos);
 
 unsigned int last_send_time_ms = 0;
 unsigned int state_start_ms = 0; // Point in time when the current state was set
@@ -88,7 +90,9 @@ void setup()
 
   AX_.init();                       // initialisation de la carte ArduinoX 
   imu_.init();                      // initialisation de la centrale inertielle
-  pinMode(PENDULUMPOT_PIN, INPUT);
+  // pinMode(PENDULUMPOT_PIN, INPUT);
+  pinMode(FORWARD_PIN, INPUT);
+  pinMode(BACKWARD_PIN, INPUT);
   clawServo_.attach(CLAWSERVO_PIN);
 
   // Initialisation du PID
@@ -113,13 +117,13 @@ void loop()
     pid_.setGoal(command.get_torque(millis()));
     break;
   case State::ReturnHome:
-    AX_.setMotorPWM(0, wheelTicks.position() < homePos ? 0.1 : -0.1);
+    AX_.setMotorPWM(MOTOR_PIN, wheelTicks.position() < homePos ? 0.1 : -0.1);
     break;
   case State::Stabilize:
-    AX_.setMotorPWM(0, stabilize());
+    AX_.setMotorPWM(MOTOR_PIN, stabilize());
     break;
   case State::TakingTree:
-    AX_.setMotorPWM(0, 0.0);
+    AX_.setMotorPWM(MOTOR_PIN, 0.0);
     if(millis()-state_start_ms < TAKE_DELAY/2) {
       clawServo_.write(clawOpen_angle);
     } else {
@@ -131,11 +135,18 @@ void loop()
     break;
   case State::JustGonnaSendIt:
     pid_.setGoal(maxTorque);
+  case State::ShortCircuitBackward:
+    AX_.setMotorPWM(MOTOR_PIN, -0.2);
     break;
+  case State::ShortCircuitForward:
+    AX_.setMotorPWM(MOTOR_PIN, 0.2);
+    break;
+  case State::Ready:
+    AX_.setMotorPWM(MOTOR_PIN, 0.0);
   }
 
   pendulumPot.update(analogRead(PENDULUMPOT_PIN));
-  wheelTicks.update(AX_.readEncoder(0));
+  wheelTicks.update(AX_.readEncoder(MOTOR_PIN));
 
   // Mise a jour du pid
   pid_.run();
@@ -185,8 +196,7 @@ void serialEvent()
   // Analyse des éléments du message message
   parse_msg = doc["state"];
   if(!parse_msg.isNull()){
-     state = doc["state"].as<int>();
-     lastStateSend = millis();
+     state = static_cast<State>(doc["state"].as<int>());
   }
 }
 void sendMsg()
@@ -201,7 +211,7 @@ void sendMsg()
   doc["wheel"] = wheelTicks.position();
   doc["dwheel"] = wheelTicks.speed();
   doc["ddwheel"] = wheelTicks.accel();
-  doc["dlin"] = wheelTicks.speed() * WHEEL_TO_LIN;
+  doc["dlin"] = wheelTicks.speed() * 2 * PI * wheelRadius;
 
   doc["pendulumPot"] = pendulumPot.position();
   doc["dpendulumPot"] = pendulumPot.speed();
@@ -228,6 +238,11 @@ void update_eot()
 }
 void update_state()
 {
+  if(digitalRead(FORWARD_PIN)) {
+    set_state(State::ShortCircuitForward);
+  } else if(digitalRead(BACKWARD_PIN)) {
+    set_state(State::ShortCircuitBackward);
+  }
   switch(state) {
   case State::Stabilize:
     if(pendulumPot.speed() < PENDULUMSPEED_STABILIZED) {
@@ -259,6 +274,14 @@ void update_state()
       set_state(State::Stabilize);
     }
     break;
+  case State::ShortCircuitBackward:
+    if(!digitalRead(BACKWARD_PIN)) {
+      set_state(State::Ready);
+    }
+  case State::ShortCircuitForward:
+    if(!digitalRead(FORWARD_PIN)) {
+      set_state(State::Ready);
+    }
   default:
     break;
   }

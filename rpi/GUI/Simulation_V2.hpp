@@ -55,8 +55,8 @@ class Simulation_V2
         void   SetVariablesFromArray( double VAR[] );
         char*  MGeqns( double t, double VAR[], double VARp[], char isIntegratorBoundary );
         void   CalculateOutput( double t, double Output[] );
-        char*  MGIntegrator( std::function<char*(double, double*, double*, char)> eqns,int numY, double y[], double tStart, double* hEntry, double* hNext,double smallestAllowableStepsize, double absError, double relError );
-        char*  MGIntegrateOneStep( std::function<char*(double, double*, double*, char)> eqns,int numY, double y[], double* t, double tStepMax,double* stepsizeSuggested, double smallestAllowableStepsize,double absError, double relError );
+        char*  MGIntegrator(int numY, double y[], double tStart, double* hEntry, double* hNext,double smallestAllowableStepsize, double absError, double relError );
+        char*  MGIntegrateOneStep(int numY, double y[], double* t, double tStepMax,double* stepsizeSuggested, double smallestAllowableStepsize,double absError, double relError );
         char*  MGIntegrateForwardOrBackward( int numVariables, double varArrayToIntegrate[], double OutputToFill[], double tInitial, double tFinal, double tStep, double absError, double relError, int printIntScreen, int printIntFile );
         void   CalculateConstants( void );
         char*  MGSolveLinearEquation( int numberOfEqns, double* A[], double B[], double X[] );
