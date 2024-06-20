@@ -16,8 +16,8 @@
 
 #define PENDULUMPOT_PIN A7
 #define CLAWSERVO_PIN 8
-#define FORWARD_PIN 28
-#define BACKWARD_PIN 29
+#define FORWARD_PIN 17
+#define BACKWARD_PIN 16
 #define MOTOR_PIN 1
 
 // Modelisation
@@ -60,7 +60,7 @@ unsigned int last_send_time_ms = 0;
 unsigned int state_start_ms = 0; // Point in time when the current state was set
 
 Command command;
-State state { State::ReturnHome };
+State state { State::Ready };
 
 // Function that gets called at the end of the loop if
 // a message is received on the serial buffer
@@ -89,7 +89,7 @@ void setup()
   Serial.begin(BAUD_RATE);
 
   AX_.init();                       // initialisation de la carte ArduinoX 
-  imu_.init();                      // initialisation de la centrale inertielle
+  // imu_.init();                      // initialisation de la centrale inertielle
   // pinMode(PENDULUMPOT_PIN, INPUT);
   pinMode(FORWARD_PIN, INPUT);
   pinMode(BACKWARD_PIN, INPUT);
@@ -102,7 +102,7 @@ void setup()
   pid_.setPeriod(200);
 
   pid_.setMeasurementFunc([]() -> double { return 0.0; });
-  pid_.setCommandFunc([](double pwm){ AX_.setMotorPWM(0, pwm); });
+  pid_.setCommandFunc([](double pwm){ AX_.setMotorPWM(MOTOR_PIN, pwm); });
 }
 
 void loop()
@@ -111,10 +111,11 @@ void loop()
     sendMsg();
     last_send_time_ms = millis();
   }
+  update_state();
 
   switch(state) {
   case State::Swinging:
-    pid_.setGoal(command.get_torque(millis()));
+    pid_.setGoal(command.get_accel(millis()));
     break;
   case State::ReturnHome:
     AX_.setMotorPWM(MOTOR_PIN, wheelTicks.position() < homePos ? 0.1 : -0.1);

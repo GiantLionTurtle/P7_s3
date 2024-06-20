@@ -2,7 +2,7 @@
 #ifndef P7_COMMON_HPP_
 #define P7_COMMON_HPP_
 
-#define BAUD_RATE 115200
+#define BAUD_RATE 9600
 #define COMMAND_DURATION_MS 100
 #define N_ACCELS_SAMPLES 10
 

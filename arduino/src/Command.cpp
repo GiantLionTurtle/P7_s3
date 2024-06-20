@@ -4,7 +4,7 @@
 
 #include <Arduino.h>
 
-float Command::get_torque(unsigned int currTime_ms) const
+float Command::get_accel(unsigned int currTime_ms) const
 {
   if(currTime_ms > startTime_ms + COMMAND_DURATION_MS) { // Invalid time stamp
     return 0.0f;
