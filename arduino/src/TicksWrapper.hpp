@@ -2,6 +2,8 @@
 #ifndef P7_TICKSWRAPPER_HPP_
 #define P7_TICKSWRAPPER_HPP_
 
+#include <Arduino.h>
+
 struct TicksWrapper {
   double conversion_ratio { 1.0 };
   double offset;

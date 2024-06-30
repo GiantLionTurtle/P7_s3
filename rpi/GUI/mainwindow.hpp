@@ -18,6 +18,8 @@ class MainWindow;
 }
 
 class MainWindow : public QMainWindow {
+    Q_OBJECT
+    
 private:
   Simulation_V2 simulation;
   unsigned long int last_simulation_time { 0 }; // ms, the instant into the
@@ -25,10 +27,6 @@ private:
   unsigned long int last_arduino_time { 0 };    // ms, the instant into the arduino code
                                                 // last time we checked
   ArduinoModel arduino_model;
-
-private:
-
-    Q_OBJECT
 
 public:
     int TIMEOUT_MS = 100; // ms

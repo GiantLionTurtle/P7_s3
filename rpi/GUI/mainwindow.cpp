@@ -23,12 +23,13 @@ MainWindow::MainWindow(QString portName, int updateRate, QWidget *parent)
     // Fonctions de connections events/slots
   connectTimers(updateRate);
   connectPlotBoxe();  // activation du plot, mettre en commentaire si pas utilise
+  connectComboBox();
+  connectSliders();
   // Serial protocole
   serialCom = new SerialProtocol(portName, BAUD_RATE);
   connectSerialPortRead();
 
-  connectComboBox();
-  connectSliders();
+
 }
 
 MainWindow::~MainWindow()
@@ -128,11 +129,11 @@ void MainWindow::connectPlotBoxe()
   // Plot data
   currentPot.setDataLen(300);
   currentPot.setColor(255,0,0);
-  currentPot.setGain(.2);
+  currentPot.setGain(4);
 }
 void MainWindow::connectComboBox()
 {
-    connect(ui->statebox, SIGNAL(currentIndexChanged(int)), this, SLOT(sendState(int)));
+  connect(ui->statebox, SIGNAL(currentIndexChanged(int)), this, SLOT(sendState(int)));
 }
 void MainWindow::connectSliders()
 {
