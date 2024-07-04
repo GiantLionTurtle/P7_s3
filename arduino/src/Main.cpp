@@ -59,7 +59,7 @@ POTENTIOMETRE potentiometre_();
 
 Position EOTPos;
 
-PotWrapper pendulumPot(-2.35619449, 2.35619449, 256); // -135 to 135 deg
+PotWrapper pendulumPot(-2.35619449, 2.35619449); // -135 to 135 deg
 TicksWrapper wheelTicks((2.0*PI*wheelRadius)/(ticksPerTurn), obstaclePos);
 
 String inputString = "";

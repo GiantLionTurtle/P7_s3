@@ -15,14 +15,13 @@ double map(double x, double in_min, double in_max, double out_min, double out_ma
 
 struct PotWrapper {
   double minRange, maxRange;
-  double zero;
+  double zero { 0.0 };
   int curr, last;
 
   PotWrapper() = default;
-  PotWrapper(double min_, double max_, int zero_)
+  PotWrapper(double min_, double max_)
     : minRange(min_)
     , maxRange(max_)
-    , zero(map_me_up(zero_))
   {
 
   }
