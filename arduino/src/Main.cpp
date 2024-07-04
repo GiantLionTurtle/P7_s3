@@ -58,6 +58,8 @@ Position EOTPos;
 PotWrapper pendulumPot(-2.35619449, 2.35619449, 256); // -135 to 135 deg
 TicksWrapper wheelTicks((2.0*PI*wheelRadius)/(ticksPerTurn), obstaclePos);
 
+String inputString = "";
+
 unsigned int last_send_time_ms = 0;
 unsigned int state_start_ms = 0; // Point in time when the current state was set
 
@@ -69,6 +71,7 @@ State state { State::Ready };
 // it updates the command given to the pid
 // as well as other parameters
 void serialEvent();
+void manageInput();
 // Sends info to the raspberry pi so that it 
 // can perform simulations and update the command
 void sendMsg();
@@ -151,25 +154,46 @@ void loop()
   case State::Ready:
     AX_.setMotorPWM(MOTOR_PIN, 0.0);
     break;
+  case State::Error:
+    AX_.setMotorPWM(MOTOR_PIN, 0.0);
+    // Safe state for tool
+    break;
   }
 
+  // Update sensor wrappers
   pendulumPot.update(analogRead(PENDULUMPOT_PIN));
   wheelTicks.update(AX_.readEncoder(MOTOR_PIN));
   // Mise a jour du pid
   pid_.run();
-  // AX_.setMotorPWM(MOTOR_PIN, 0.5);
 }
 
 // Gets called at the end of each loop if there is
 // data in the serial buffer
 void serialEvent()
 {
+  while (Serial.available()) {
+    char inChar = (char)Serial.read();
+
+    if (inChar == '\n') {
+      manageInput();
+    } else {
+      inputString += inChar;
+    }
+  }
+
+}
+void manageInput()
+{
+  if(inputString.size() == 1 && inputString[0] == 'E') {
+    set_state(State::Error);
+    return;
+  }
   // Lecture du message Json
   StaticJsonDocument<500> doc;
   JsonVariant parse_msg;
 
   // Lecture sur le port Seriel
-  DeserializationError error = deserializeJson(doc, Serial);
+  DeserializationError error = deserializeJson(doc, inputString);
 
   // Si erreur dans le message
   if (error) {
@@ -300,17 +324,21 @@ void update_state()
 }
 void set_state(State newState)
 {
+  if(state == State::Error) {
+    return; // Cannot exit error
+  }
   switch(newState) {
   case State::Ready:
   case State::Stabilize:
   case State::Swinging:
   case State::JustGonnaSendIt:
   case State::Drop:
-  case State::ShortCircuitForward:
-  case State::ShortCircuitBackward:
     pid_.enable();
     break;
   case State::ReturnHome:
+  case State::Error:
+  case State::ShortCircuitForward:
+  case State::ShortCircuitBackward:
     pid_.disable();
     break;
   }
