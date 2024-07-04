@@ -30,6 +30,7 @@ const double railHeight = 1.0; // m
 const double wheelRadius = 0.05; // m
 const double ticksPerTurn = 6400;
 const double maxSpeed; // m/s
+double commandePID;
 
 const double obstaclePos = 0.5;
 
@@ -54,6 +55,7 @@ MegaServo servo_;                   // objet servomoteur
 IMU9DOF imu_;                       // objet imu
 PID pid_;                           // objet PID
 MegaServo clawServo_;
+POTENTIOMETRE potentiometre_();
 
 Position EOTPos;
 
@@ -98,6 +100,7 @@ void setup()
 
   AX_.init();                       // initialisation de la carte ArduinoX 
   // imu_.init();                      // initialisation de la centrale inertielle
+  potentiometre_.calibrate();
   pinMode(PENDULUMPOT_PIN, INPUT);
   pinMode(FORWARD_BTN_PIN, INPUT);
   pinMode(BACKWARD_BTN_PIN, INPUT);
@@ -251,6 +254,18 @@ void sendMsg()
   doc["dwheel"] = wheelTicks.speed();
   doc["ddwheel"] = wheelTicks.accel();
   doc["dlin"] = wheelTicks.speed() * 2 * PI * wheelRadius;
+  doc["commande"] = commandePID;
+  doc["potetentiometre"] = potentiometre_.getAngle();
+  doc["ClawServo"] = clawServo_.read();
+  doc["encodeur"] = AX_.readEncoder(MOTOR_PIN);
+  /*
+  doc["accelX"] = imu_.getAccelX();
+  doc["accelY"] = imu_.getAccelY();
+  doc["accelZ"] = imu_.getAccelZ();
+  doc["gyroX"] = imu_.getGyroX();
+  doc["gyroY"] = imu_.getGyroY();
+  doc["gyroZ"] = imu_.getGyroZ();
+  */
 
   doc["pendulumPot"] = pendulumPot.position();
   doc["dpendulumPot"] = pendulumPot.speed();
