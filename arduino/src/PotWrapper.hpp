@@ -32,6 +32,12 @@ struct PotWrapper {
     last = curr;
     curr = val;
   }
+
+  void calibrate(int val)
+  {
+    zero = val;
+  }
+
   int raw() const { return curr; }
   double position() const { return position(curr); }
   double position(int val) const { return map_me_up(val) - zero; }

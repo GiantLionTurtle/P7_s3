@@ -55,14 +55,12 @@ MegaServo servo_;                   // objet servomoteur
 IMU9DOF imu_;                       // objet imu
 PID pid_;                           // objet PID
 MegaServo clawServo_;
-POTENTIOMETRE potentiometre_();
+//POTENTIOMETRE potentiometre_();
 
 Position EOTPos;
 
-PotWrapper pendulumPot(-2.35619449, 2.35619449); // -135 to 135 deg
+PotWrapper pendulumPot(-2.35619449, 2.35619449, 256); // -135 to 135 deg
 TicksWrapper wheelTicks((2.0*PI*wheelRadius)/(ticksPerTurn), obstaclePos);
-
-String inputString = "";
 
 unsigned int last_send_time_ms = 0;
 unsigned int state_start_ms = 0; // Point in time when the current state was set
@@ -75,7 +73,6 @@ State state { State::Ready };
 // it updates the command given to the pid
 // as well as other parameters
 void serialEvent();
-void manageInput();
 // Sends info to the raspberry pi so that it 
 // can perform simulations and update the command
 void sendMsg();
@@ -92,7 +89,6 @@ void update_state();
 // Sets the state machine and 
 // sets flags
 void set_state(State st);
-
 
 void setup()
 {
@@ -115,11 +111,11 @@ void setup()
   pid_.setPeriod(200);
 
   pid_.setMeasurementFunc([]() -> double { wheelTicks.accel(); }); //acceleration lineaire
-  pid_.setCommandFunc([](double command){ /*CommandPID(command);*/ AX_.setMoteurPWM(MOTOR_PIN, command);ac });
-  // Ax_.setMoteurPWM(MOTOR_PIN, 1);
-  // wait(0.5);
-  // maxSpeed = wheelTicks.getSpeed();
-  // Ax_.setMotorPWM(MOTOR_PIN, 0);
+  pid_.setCommandFunc([](double command){ CommandPID(command); });
+  Ax_.setMoteurPWM(MOTOR_PIN, 1);
+  wait(0.5);
+  maxSpeed = wheelTicks.getSpeed();
+  Ax_.setMotorPWM(MOTOR_PIN, 0);
 }
 
 void loop()
@@ -164,46 +160,25 @@ void loop()
   case State::Ready:
     AX_.setMotorPWM(MOTOR_PIN, 0.0);
     break;
-  case State::Error:
-    AX_.setMotorPWM(MOTOR_PIN, 0.0);
-    // Safe state for tool
-    break;
   }
 
-  // Update sensor wrappers
   pendulumPot.update(analogRead(PENDULUMPOT_PIN));
   wheelTicks.update(AX_.readEncoder(MOTOR_PIN));
   // Mise a jour du pid
   pid_.run();
+  // AX_.setMotorPWM(MOTOR_PIN, 0.5);
 }
 
 // Gets called at the end of each loop if there is
 // data in the serial buffer
 void serialEvent()
 {
-  while (Serial.available()) {
-    char inChar = (char)Serial.read();
-
-    if (inChar == '\n') {
-      manageInput();
-    } else {
-      inputString += inChar;
-    }
-  }
-
-}
-void manageInput()
-{
-  if(inputString.size() == 1 && inputString[0] == 'E') {
-    set_state(State::Error);
-    return;
-  }
   // Lecture du message Json
   StaticJsonDocument<500> doc;
   JsonVariant parse_msg;
 
   // Lecture sur le port Seriel
-  DeserializationError error = deserializeJson(doc, inputString);
+  DeserializationError error = deserializeJson(doc, Serial);
 
   // Si erreur dans le message
   if (error) {
@@ -255,9 +230,10 @@ void sendMsg()
   doc["ddwheel"] = wheelTicks.accel();
   doc["dlin"] = wheelTicks.speed() * 2 * PI * wheelRadius;
   doc["commande"] = commandePID;
-  doc["potetentiometre"] = potentiometre_.getAngle();
+  //doc["potetentiometre"] = potentiometre_.getAngle();
   doc["ClawServo"] = clawServo_.read();
   doc["encodeur"] = AX_.readEncoder(MOTOR_PIN);
+  doc["pendule"] = analogRead(PENDULUMPOT_PIN);
   /*
   doc["accelX"] = imu_.getAccelX();
   doc["accelY"] = imu_.getAccelY();
@@ -346,21 +322,17 @@ void update_state()
 }
 void set_state(State newState)
 {
-  if(state == State::Error) {
-    return; // Cannot exit error
-  }
   switch(newState) {
   case State::Ready:
   case State::Stabilize:
   case State::Swinging:
   case State::JustGonnaSendIt:
   case State::Drop:
+  case State::ShortCircuitForward:
+  case State::ShortCircuitBackward:
     pid_.enable();
     break;
   case State::ReturnHome:
-  case State::Error:
-  case State::ShortCircuitForward:
-  case State::ShortCircuitBackward:
     pid_.disable();
     break;
   }
@@ -370,5 +342,6 @@ void set_state(State newState)
 
 void CommandPID(double command){
   double speed = (wheelTicks.last_speed() + command)*wheelTicks.ddticks();
+  commandePID = command;
   AX_.setMotorPWM(MOTOR_PIN, speed/maxSpeed);
 }
