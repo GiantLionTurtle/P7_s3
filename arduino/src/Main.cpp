@@ -3,6 +3,7 @@
 #include "TicksWrapper.hpp"
 #include "PotWrapper.hpp"
 #include "BoundingBox.hpp"
+#include "Potentiometre.hpp"
 #include "../../common_rpiarduino/Common.hpp"
 
 #include <ArduinoJson.h> // librairie de syntaxe JSON
@@ -28,6 +29,7 @@ const double pendulumLength = 0.4; // m
 const double railHeight = 1.0; // m
 const double wheelRadius = 0.05; // m
 const double ticksPerTurn = 6400;
+const double maxSpeed; // m/s
 
 const double obstaclePos = 0.5;
 
@@ -105,8 +107,12 @@ void setup()
   pid_.setEpsilon(0.001);
   pid_.setPeriod(200);
 
-  pid_.setMeasurementFunc([]() -> double { return 0.0; });
-  pid_.setCommandFunc([](double pwm){ AX_.setMotorPWM(MOTOR_PIN, pwm); });
+  pid_.setMeasurementFunc([]() -> double { wheelTicks.accel(); }); //acceleration lineaire
+  pid_.setCommandFunc([](double command){ CommandPID(command); });
+  Ax_.setMoteurPWM(MOTOR_PIN, 1);
+  wait(0.5);
+  maxSpeed = wheelTicks.getSpeed();
+  Ax_.setMotorPWM(MOTOR_PIN, 0);
 }
 
 void loop()
@@ -316,4 +322,9 @@ void set_state(State newState)
   }
   state = newState;
   state_start_ms = millis();
+}
+
+void CommandPID(double command){
+  double speed = (wheelTicks.last_speed() + command)*wheelTicks.ddticks();
+  AX_.setMotorPWM(MOTOR_PIN, speed/maxSpeed);
 }
