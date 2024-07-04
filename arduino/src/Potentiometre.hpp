@@ -3,7 +3,7 @@
 
 #include <LibS3GRO.h>
 
-class POTENTIOMETRE
+class Potentiometre
 {
     public:
         POTENTIOMETRE(uint8_t pin_ch1, uint8_t pin_ch2){potentiometre.init(pin_ch1, pin_ch2);};
