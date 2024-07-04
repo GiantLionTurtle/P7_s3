@@ -91,6 +91,7 @@ void update_state();
 // sets flags
 void set_state(State st);
 
+
 void setup()
 {
   Serial.begin(BAUD_RATE);
@@ -111,11 +112,11 @@ void setup()
   pid_.setPeriod(200);
 
   pid_.setMeasurementFunc([]() -> double { wheelTicks.accel(); }); //acceleration lineaire
-  pid_.setCommandFunc([](double command){ CommandPID(command); });
-  Ax_.setMoteurPWM(MOTOR_PIN, 1);
-  wait(0.5);
-  maxSpeed = wheelTicks.getSpeed();
-  Ax_.setMotorPWM(MOTOR_PIN, 0);
+  pid_.setCommandFunc([](double command){ /*CommandPID(command);*/ AX_.setMoteurPWM(MOTOR_PIN, command);ac });
+  // Ax_.setMoteurPWM(MOTOR_PIN, 1);
+  // wait(0.5);
+  // maxSpeed = wheelTicks.getSpeed();
+  // Ax_.setMotorPWM(MOTOR_PIN, 0);
 }
 
 void loop()
