@@ -128,7 +128,12 @@
       </item>
       <item>
        <property name="text">
-        <string>ShorCircuitBackward</string>
+        <string>ShortCircuitBackward</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>Error</string>
        </property>
       </item>
      </widget>

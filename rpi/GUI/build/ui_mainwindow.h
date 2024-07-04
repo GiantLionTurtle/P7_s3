@@ -155,7 +155,7 @@ public:
         statebox->setItemText(5, QCoreApplication::translate("MainWindow", "JustGonnaSendIt", nullptr));
         statebox->setItemText(6, QCoreApplication::translate("MainWindow", "Drop", nullptr));
         statebox->setItemText(7, QCoreApplication::translate("MainWindow", "ShortCircuitForward", nullptr));
-        statebox->setItemText(8, QCoreApplication::translate("MainWindow", "ShorCircuitBackward", nullptr));
+        statebox->setItemText(8, QCoreApplication::translate("MainWindow", "ShortCircuitBackward", nullptr));
 
         label_3->setText(QCoreApplication::translate("MainWindow", "De-1", nullptr));
     } // retranslateUi
