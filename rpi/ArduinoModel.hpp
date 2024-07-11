@@ -10,6 +10,7 @@ struct ArduinoModel {
   double pendulum_dangle;
   double wheelAngSpeed;
   double linSpeed;
+  double wheel_pos;
   State state;
 };
 

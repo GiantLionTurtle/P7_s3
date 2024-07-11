@@ -56,7 +56,7 @@ MegaServo clawServo_;
 Position EOTPos;
 
 PotWrapper pendulumPot(-2.35619449, 2.35619449); // -135 to 135 deg
-TicksWrapper wheelTicks((2.0*PI*wheelRadius)/(ticksPerTurn), obstaclePos);
+TicksWrapper wheelTicks((2.0*PI*wheelRadius)/(ticksPerTurn), startPos);
 
 unsigned int last_send_time_ms = 0;
 unsigned int state_start_ms = 0; // Point in time when the current state was set
@@ -112,10 +112,8 @@ void setup()
 
 void loop()
 {
-  if(millis()-last_send_time_ms > UPDATE_RATE_MS) {
-    sendMsg();
-    // Serial.println(digitalRead(BACKWARD_PIN));
-    last_send_time_ms = millis();
+  if(millis()-last_send_time_ms < UPDATE_RATE_MS) {
+    return;
   }
   update_state();
 
@@ -159,6 +157,11 @@ void loop()
   // Mise a jour du pid
   pid_.run();
   // AX_.setMotorPWM(MOTOR_PIN, 0.5);
+
+  sendMsg();
+  // Serial.println(digitalRead(BACKWARD_PIN));
+  last_send_time_ms = millis();
+
 }
 
 // Gets called at the end of each loop if there is
@@ -186,14 +189,14 @@ void serialEvent()
     pid_.enable();
   }
 
-  parse_msg = doc["command"];
+  parse_msg = doc[JSON_COMMAND];
   if(!parse_msg.isNull()) {
-    parse_msg = doc["command"]["startTime"];
+    parse_msg = doc[JSON_COMMAND]["startTime"];
     if(parse_msg.isNull())
       return;
     command.startTime_ms = parse_msg.as<unsigned int>();
 
-    parse_msg = doc["command"]["accels"];
+    parse_msg = doc[JSON_COMMAND]["accels"];
     if(parse_msg.isNull())
       return;
 
@@ -203,9 +206,9 @@ void serialEvent()
   }
 
   // Analyse des éléments du message message
-  parse_msg = doc["state"];
+  parse_msg = doc[JSON_STATE];
   if(!parse_msg.isNull()){
-     state = static_cast<State>(doc["state"].as<int>());
+     state = static_cast<State>(doc[JSON_STATE].as<int>());
   }
 }
 void sendMsg()
@@ -214,18 +217,18 @@ void sendMsg()
   StaticJsonDocument<500> doc;
   // Elements du message
 
-  doc["time"] = millis();
-  doc["goal"] = pid_.getGoal();
+  doc[JSON_TIME] = millis();
+  doc[JSON_GOAL] = pid_.getGoal();
 
-  doc["wheel"] = wheelTicks.position();
-  doc["dwheel"] = wheelTicks.speed();
-  doc["ddwheel"] = wheelTicks.accel();
-  doc["dlin"] = wheelTicks.speed() * 2 * PI * wheelRadius;
+  doc[JSON_WHEEL] = wheelTicks.position();
+  doc[JSON_DWHEEL] = wheelTicks.speed();
+  doc[JSON_DDWHEEL] = wheelTicks.accel();
+  // doc["dlin"] = wheelTicks.speed() * 2 * PI * wheelRadius;
 
   //doc["potetentiometre"] = potentiometre_.getAngle();
-  doc["ClawServo"] = clawServo_.read();
-  doc["encodeur"] = AX_.readEncoder(MOTOR_PIN);
-  doc["pendule"] = analogRead(PENDULUMPOT_PIN);
+  // doc["ClawServo"] = clawServo_.read();
+  // doc["encodeur"] = AX_.readEncoder(MOTOR_PIN);
+  // doc["pendule"] = analogRead(PENDULUMPOT_PIN);
   /*
   doc["accelX"] = imu_.getAccelX();
   doc["accelY"] = imu_.getAccelY();
@@ -235,14 +238,14 @@ void sendMsg()
   doc["gyroZ"] = imu_.getGyroZ();
   */
 
-  doc["pendulumPot"] = pendulumPot.position();
-  doc["dpendulumPot"] = pendulumPot.speed();
+  doc[JSON_PENDULUM] = pendulumPot.position();
+  doc[JSON_DPENDULUM] = pendulumPot.speed();
 
-  doc["isGoal"] = pid_.isAtGoal();
-  doc["actualTime"] = pid_.getActualDt();
-  doc["state"] = static_cast<int>(state);
-  doc["voltage"] = AX_.getVoltage();
-  doc["current"] = AX_.getCurrent();
+  doc[JSON_ATGOAL] = pid_.isAtGoal();
+  // doc["actualTime"] = pid_.getActualDt();
+  doc[JSON_STATE] = static_cast<int>(state);
+  doc[JSON_VOLTAGE] = AX_.getVoltage();
+  doc[JSON_CURRENT] = AX_.getCurrent();
 
   // Serialisation
   serializeJson(doc, Serial);

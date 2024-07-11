@@ -16,6 +16,7 @@ public:
     void addData(double);
     void draw(QGraphicsScene *);
     void setGain(double);
+    double getGain() const { return gain; }
 
 public slots:
     void clear();

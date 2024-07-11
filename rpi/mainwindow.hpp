@@ -12,6 +12,7 @@
 #include <QGraphicsScene>
 #include <QGraphicsView>
 #include <QGraphicsItem>
+#include <QtWidgets>
 
 namespace Ui {
 class MainWindow;
@@ -74,6 +75,11 @@ private:
     Plot currentSpeed;
     Plot currentAccel;
     Plot pidTarget;
+    size_t lastUpdMillis { 0 };
+
+    double dist_tot { 0 };
+    double last_dist { startPos };
+    double energy { 0 };
 
 protected:
     Ui::MainWindow *ui;
