@@ -3,14 +3,12 @@
 #include "TicksWrapper.hpp"
 #include "PotWrapper.hpp"
 #include "BoundingBox.hpp"
-#include "Potentiometre.hpp"
 #include "../../common_rpiarduino/Common.hpp"
 
 #include <ArduinoJson.h> // librairie de syntaxe JSON
 #include <SPI.h> // librairie Communication SPI
 #include <LibS3GRO.h>
 
-#define MSG_SEND_INTERVAL 50 // ms
 #define DROP_DELAY 200 // ms
 #define TAKE_DELAY 1000 // ms
 #define PENDULUMSPEED_STABILIZED 0.02
@@ -29,8 +27,6 @@ const double pendulumLength = 0.4; // m
 const double railHeight = 1.0; // m
 const double wheelRadius = 0.05; // m
 const double ticksPerTurn = 6400;
-const double maxSpeed; // m/s
-double commandePID;
 
 const double obstaclePos = 0.5;
 
@@ -59,7 +55,7 @@ MegaServo clawServo_;
 
 Position EOTPos;
 
-PotWrapper pendulumPot(-2.35619449, 2.35619449, 256); // -135 to 135 deg
+PotWrapper pendulumPot(-2.35619449, 2.35619449); // -135 to 135 deg
 TicksWrapper wheelTicks((2.0*PI*wheelRadius)/(ticksPerTurn), obstaclePos);
 
 unsigned int last_send_time_ms = 0;
@@ -96,31 +92,27 @@ void setup()
 
   AX_.init();                       // initialisation de la carte ArduinoX 
   // imu_.init();                      // initialisation de la centrale inertielle
-  potentiometre_.calibrate();
+  
   pinMode(PENDULUMPOT_PIN, INPUT);
   pinMode(FORWARD_BTN_PIN, INPUT);
   pinMode(BACKWARD_BTN_PIN, INPUT);
   pinMode(LEFT_BTN_PIN, INPUT);
   pinMode(RIGHT_BTN_PIN, INPUT);
   clawServo_.attach(CLAWSERVO_PIN);
-
+  pendulumPot.calibrate(analogRead(PENDULUMPOT_PIN));
   // Initialisation du PID
   pid_.setGains(0.25,0.1 ,0);
   // Attache des fonctions de retour
   pid_.setEpsilon(0.001);
   pid_.setPeriod(200);
 
-  pid_.setMeasurementFunc([]() -> double { wheelTicks.accel(); }); //acceleration lineaire
-  pid_.setCommandFunc([](double command){ CommandPID(command); });
-  Ax_.setMoteurPWM(MOTOR_PIN, 1);
-  wait(0.5);
-  maxSpeed = wheelTicks.getSpeed();
-  Ax_.setMotorPWM(MOTOR_PIN, 0);
+  pid_.setMeasurementFunc([]() -> double { return wheelTicks.accel(); }); //acceleration lineaire
+  pid_.setCommandFunc([](double command){ AX_.setMotorPWM(MOTOR_PIN, command); });
 }
 
 void loop()
 {
-  if(millis()-last_send_time_ms > MSG_SEND_INTERVAL) {
+  if(millis()-last_send_time_ms > UPDATE_RATE_MS) {
     sendMsg();
     // Serial.println(digitalRead(BACKWARD_PIN));
     last_send_time_ms = millis();
@@ -229,7 +221,7 @@ void sendMsg()
   doc["dwheel"] = wheelTicks.speed();
   doc["ddwheel"] = wheelTicks.accel();
   doc["dlin"] = wheelTicks.speed() * 2 * PI * wheelRadius;
-  doc["commande"] = commandePID;
+
   //doc["potetentiometre"] = potentiometre_.getAngle();
   doc["ClawServo"] = clawServo_.read();
   doc["encodeur"] = AX_.readEncoder(MOTOR_PIN);
@@ -323,6 +315,7 @@ void update_state()
 void set_state(State newState)
 {
   switch(newState) {
+  case State::TakingTree:
   case State::Ready:
   case State::Stabilize:
   case State::Swinging:
@@ -335,13 +328,9 @@ void set_state(State newState)
   case State::ReturnHome:
     pid_.disable();
     break;
+  default:
+    break;
   }
   state = newState;
   state_start_ms = millis();
-}
-
-void CommandPID(double command){
-  double speed = (wheelTicks.last_speed() + command)*wheelTicks.ddticks();
-  commandePID = command;
-  AX_.setMotorPWM(MOTOR_PIN, speed/maxSpeed);
 }

@@ -30,7 +30,6 @@ private:
 
 public:
     int TIMEOUT_MS = 100; // ms
-    int DEFAULT_UPDATE_RATE = 100; // ms
 
     explicit MainWindow(QString portName, int updateRate, QWidget *parent = 0);
     virtual ~MainWindow();
@@ -44,11 +43,15 @@ public:
 
     void onPeriodicUpdate();
 
+    void graphPosition(QJsonObject JsonObj);
+
 private slots:
     void receiveFromSerial(QString);
 
     void sendCommand(std::vector<double> accels);
-    void sendState(State state);
+    void sendState(int state);
+    void sendState(State state) { sendState(static_cast<int>(state)); }
+    void setPID();
 
 private:
     void connectTimers(int updateRate);
@@ -56,7 +59,6 @@ private:
     void connectPlotBoxe();
     void connectComboBox();
     void connectSliders();
-    void setPID();
 
     QTimer updateTimer_;
     QString msgReceived_{""};
@@ -66,7 +68,12 @@ private:
 
 
     QGraphicsScene scene;
+    QGraphicsScene scenePosition;
     Plot currentPot;
+    Plot currentPos;
+    Plot currentSpeed;
+    Plot currentAccel;
+    Plot pidTarget;
 
 protected:
     Ui::MainWindow *ui;

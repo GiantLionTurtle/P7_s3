@@ -51,6 +51,7 @@ void MainWindow::receiveFromSerial(QString msg) {
   msgBuffer += msg;
 
   if(msgBuffer.endsWith('\n')) {
+    qDebug()<<"Read arduino! "<<QTime::currentTime()<<"\n";
     is_readingArduino_ = true;
     QJsonDocument jsonResponse = QJsonDocument::fromJson(msgBuffer.toUtf8());
     if(~jsonResponse.isEmpty()) {
@@ -125,23 +126,46 @@ void MainWindow::connectSerialPortRead()
 
 void MainWindow::connectPlotBoxe() 
 {
+  
   ui->graphicsView->setScene(&scene);
+  ui->Position_view->setScene(&scenePosition);
   // Plot data
   currentPot.setDataLen(300);
   currentPot.setColor(255,0,0);
-  currentPot.setGain(4);
+  currentPot.setGain(25);
+
+  currentPos.setDataLen(300);
+  currentPos.setColor(255,0,0);
+  currentPos.setGain(4);
+
+  currentSpeed.setDataLen(300);
+  currentSpeed.setColor(0,255,0);
+  currentSpeed.setGain(4);
+
+  currentAccel.setDataLen(300);
+  currentAccel.setColor(0,0,255);
+  currentAccel.setGain(4);
+
+  pidTarget.setDataLen(300);
+  pidTarget.setColor(0,120,120);
+  pidTarget.setGain(4);
 }
 void MainWindow::connectComboBox()
 {
   connect(ui->statebox, SIGNAL(currentIndexChanged(int)), this, SLOT(sendState(int)));
+  // connect(ui->Position_selector, SIGNAL(currentIndexChanged(int)), &currentPos, SLOT(clear()));
 }
 void MainWindow::connectSliders()
 {
-  connect(ui->PID_p, SIGNAL(valueChanged()), this, SLOT(setPID()));
-  connect(ui->PID_i, SIGNAL(valueChanged()), this, SLOT(setPID()));
-  connect(ui->PID_d, SIGNAL(valueChanged()), this, SLOT(setPID())); 
+  connect(ui->PID_p, SIGNAL(valueChanged(int)), this, SLOT(setPID()));
+  connect(ui->PID_i, SIGNAL(valueChanged(int)), this, SLOT(setPID()));
+  connect(ui->PID_d, SIGNAL(valueChanged(int)), this, SLOT(setPID())); 
 }
+// void MainWindow::connectLCD()
+// {
+//   connect(ui->Distance, SIGNAL())
 
+// }
 void MainWindow::sendCommand(std::vector<double> accels)
 { 
   QString command_str = "\"command\": {\"startTime\":" + QString::number(arduino_model.time_ms) + ",\"accels\":[";
@@ -170,10 +194,10 @@ void MainWindow::setUpdateRate(int rateMs)
   // Fonction d'initialisation du Timer
   updateTimer_.start(rateMs);
 }
-void MainWindow::sendState(State state)
+void MainWindow::sendState(int state)
 {
   if(!is_readingArduino_) {
-    sendMessage("{\"state\": " + QString::number(static_cast<int>(state)) + "}");
+    sendMessage("{\"state\": " + QString::number(state) + "}");
   }
 }
 void MainWindow::setPID()
@@ -182,4 +206,27 @@ void MainWindow::setPID()
                       QString::number(static_cast<double>(ui->PID_p->value())/10.0) + ", " + 
                       QString::number(static_cast<double>(ui->PID_i->value())/10.0) + ", " + 
                       QString::number(static_cast<double>(ui->PID_d->value())/10.0) + "]}");
+}
+void MainWindow::graphPosition(QJsonObject JsonObj)
+{
+  enum Kinds { Position, Speed, Acceleration };
+
+  currentPos.addData(JsonObj["wheel"].toDouble());
+  currentSpeed.addData(JsonObj["dwheel"].toDouble());
+  currentAccel.addData(JsonObj["ddwheel"].toDouble());
+  pidTarget.addData(JsonObj["goal"].toDouble());
+  scenePosition.clear();
+
+  switch(ui->Position_selector->currentIndex()) {
+    case Position:
+      currentPos.draw(&scenePosition);
+      break;
+    case Speed:
+      currentSpeed.draw(&scenePosition);
+      break;
+    case Acceleration:
+      currentAccel.draw(&scenePosition);
+      pidTarget.draw(&scenePosition);
+      break;
+  }
 }

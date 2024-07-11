@@ -12,7 +12,6 @@ double map(double x, double in_min, double in_max, double out_min, double out_ma
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
-
 struct PotWrapper {
   double minRange, maxRange;
   double zero { 0.0 };
@@ -35,14 +34,14 @@ struct PotWrapper {
 
   void calibrate(int val)
   {
-    zero = val;
+    zero = map_me_up(val);
   }
 
   int raw() const { return curr; }
   double position() const { return position(curr); }
   double position(int val) const { return map_me_up(val) - zero; }
   double speed() const { return position(curr) - position(last); }
-  double map_me_up(double val) { return map(static_cast<double>(val), 0.0, 1023.0, minRange, maxRange); }
+  double map_me_up(int val) const { return map(static_cast<double>(val), 0.0, 1023.0, minRange, maxRange); }
 };
 
 #endif

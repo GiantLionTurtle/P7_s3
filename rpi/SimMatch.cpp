@@ -43,7 +43,7 @@ double solve(double hint, double zero_off, double eps1 = LM_EPS1, double eps2 = 
 
   bool stop = std::abs(g) <= eps1;
   double mu = 1e-3*A;
-  int max_it = 50;
+  size_t max_it = 50;
 
   for(size_t k = 0; k < max_it && !stop; ++k) {
     double rho = 0.0;

@@ -2,9 +2,10 @@
 #ifndef P7_COMMON_HPP_
 #define P7_COMMON_HPP_
 
-#define BAUD_RATE 9600
+#define BAUD_RATE 115200
 #define COMMAND_DURATION_MS 100
 #define N_ACCELS_SAMPLES 10
+#define UPDATE_RATE_MS 50
 
 // Must be kept in sync with rpi's State.hpp
 enum class State { Ready, Stabilize, ReturnHome, TakingTree, Swinging, JustGonnaSendIt, Drop, ShortCircuitForward, ShortCircuitBackward, Error };

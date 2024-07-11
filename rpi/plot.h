@@ -17,6 +17,9 @@ public:
     void draw(QGraphicsScene *);
     void setGain(double);
 
+public slots:
+    void clear();
+
 private:
     double gain = 1;
     int dataBufferLen;

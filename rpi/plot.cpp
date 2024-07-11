@@ -25,7 +25,10 @@ void Plot::addData(double newData){
     }
     data.append(newData);
 }
-
+void Plot::clear()
+{
+  data.clear();
+}
 void Plot::draw(QGraphicsScene* scene){
 
     QPainterPath curve;
