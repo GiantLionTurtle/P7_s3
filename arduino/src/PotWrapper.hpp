@@ -15,14 +15,13 @@ double map(double x, double in_min, double in_max, double out_min, double out_ma
 
 struct PotWrapper {
   double minRange, maxRange;
-  double zero;
+  double zero { 0.0 };
   int curr, last;
 
   PotWrapper() = default;
-  PotWrapper(double min_, double max_, int zero_)
+  PotWrapper(double min_, double max_)
     : minRange(min_)
     , maxRange(max_)
-    , zero(map(static_cast<double>(zero_), 0.0, 1023.0, minRange, maxRange))
   {
 
   }
@@ -33,10 +32,17 @@ struct PotWrapper {
     last = curr;
     curr = val;
   }
+
+  void calibrate(int val)
+  {
+    zero = val;
+  }
+
   int raw() const { return curr; }
   double position() const { return position(curr); }
-  double position(int val) const { return map(static_cast<double>(val), 0.0, 1023.0, minRange, maxRange) - zero; }
+  double position(int val) const { return map_me_up(val) - zero; }
   double speed() const { return position(curr) - position(last); }
+  double map_me_up(double val) { return map(static_cast<double>(val), 0.0, 1023.0, minRange, maxRange); }
 };
 
 #endif

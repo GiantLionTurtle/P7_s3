@@ -3,6 +3,7 @@
 #include "TicksWrapper.hpp"
 #include "PotWrapper.hpp"
 #include "BoundingBox.hpp"
+#include "Potentiometre.hpp"
 #include "../../common_rpiarduino/Common.hpp"
 
 #include <ArduinoJson.h> // librairie de syntaxe JSON
@@ -28,6 +29,8 @@ const double pendulumLength = 0.4; // m
 const double railHeight = 1.0; // m
 const double wheelRadius = 0.05; // m
 const double ticksPerTurn = 6400;
+const double maxSpeed; // m/s
+double commandePID;
 
 const double obstaclePos = 0.5;
 
@@ -52,6 +55,7 @@ MegaServo servo_;                   // objet servomoteur
 IMU9DOF imu_;                       // objet imu
 PID pid_;                           // objet PID
 MegaServo clawServo_;
+//POTENTIOMETRE potentiometre_();
 
 Position EOTPos;
 
@@ -92,6 +96,7 @@ void setup()
 
   AX_.init();                       // initialisation de la carte ArduinoX 
   // imu_.init();                      // initialisation de la centrale inertielle
+  potentiometre_.calibrate();
   pinMode(PENDULUMPOT_PIN, INPUT);
   pinMode(FORWARD_BTN_PIN, INPUT);
   pinMode(BACKWARD_BTN_PIN, INPUT);
@@ -105,8 +110,12 @@ void setup()
   pid_.setEpsilon(0.001);
   pid_.setPeriod(200);
 
-  pid_.setMeasurementFunc([]() -> double { return 0.0; });
-  pid_.setCommandFunc([](double pwm){ AX_.setMotorPWM(MOTOR_PIN, pwm); });
+  pid_.setMeasurementFunc([]() -> double { wheelTicks.accel(); }); //acceleration lineaire
+  pid_.setCommandFunc([](double command){ CommandPID(command); });
+  Ax_.setMoteurPWM(MOTOR_PIN, 1);
+  wait(0.5);
+  maxSpeed = wheelTicks.getSpeed();
+  Ax_.setMotorPWM(MOTOR_PIN, 0);
 }
 
 void loop()
@@ -220,6 +229,19 @@ void sendMsg()
   doc["dwheel"] = wheelTicks.speed();
   doc["ddwheel"] = wheelTicks.accel();
   doc["dlin"] = wheelTicks.speed() * 2 * PI * wheelRadius;
+  doc["commande"] = commandePID;
+  //doc["potetentiometre"] = potentiometre_.getAngle();
+  doc["ClawServo"] = clawServo_.read();
+  doc["encodeur"] = AX_.readEncoder(MOTOR_PIN);
+  doc["pendule"] = analogRead(PENDULUMPOT_PIN);
+  /*
+  doc["accelX"] = imu_.getAccelX();
+  doc["accelY"] = imu_.getAccelY();
+  doc["accelZ"] = imu_.getAccelZ();
+  doc["gyroX"] = imu_.getGyroX();
+  doc["gyroY"] = imu_.getGyroY();
+  doc["gyroZ"] = imu_.getGyroZ();
+  */
 
   doc["pendulumPot"] = pendulumPot.position();
   doc["dpendulumPot"] = pendulumPot.speed();
@@ -316,4 +338,10 @@ void set_state(State newState)
   }
   state = newState;
   state_start_ms = millis();
+}
+
+void CommandPID(double command){
+  double speed = (wheelTicks.last_speed() + command)*wheelTicks.ddticks();
+  commandePID = command;
+  AX_.setMotorPWM(MOTOR_PIN, speed/maxSpeed);
 }
