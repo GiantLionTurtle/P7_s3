@@ -46,12 +46,11 @@ public:
     QLabel *label_6;
     QLabel *label_9;
     QLabel *label_10;
-    QComboBox *Position_selector;
-    QLabel *label_2;
     QLabel *ArduinoUpdFrq_label;
     QGraphicsView *Pot_view;
     QLabel *Dist_label;
     QLabel *Energy_label;
+    QComboBox *Position_selector;
 
     void setupUi(QMainWindow *MainWindow)
     {
@@ -177,19 +176,6 @@ public:
 
         gridLayout->addWidget(label_10, 12, 0, 1, 1);
 
-        Position_selector = new QComboBox(centralWidget);
-        Position_selector->addItem(QString());
-        Position_selector->addItem(QString());
-        Position_selector->addItem(QString());
-        Position_selector->setObjectName(QString::fromUtf8("Position_selector"));
-
-        gridLayout->addWidget(Position_selector, 5, 1, 1, 1);
-
-        label_2 = new QLabel(centralWidget);
-        label_2->setObjectName(QString::fromUtf8("label_2"));
-
-        gridLayout->addWidget(label_2, 5, 0, 1, 1);
-
         ArduinoUpdFrq_label = new QLabel(centralWidget);
         ArduinoUpdFrq_label->setObjectName(QString::fromUtf8("ArduinoUpdFrq_label"));
 
@@ -209,6 +195,14 @@ public:
         Energy_label->setObjectName(QString::fromUtf8("Energy_label"));
 
         gridLayout->addWidget(Energy_label, 11, 3, 1, 1);
+
+        Position_selector = new QComboBox(centralWidget);
+        Position_selector->addItem(QString());
+        Position_selector->addItem(QString());
+        Position_selector->addItem(QString());
+        Position_selector->setObjectName(QString::fromUtf8("Position_selector"));
+
+        gridLayout->addWidget(Position_selector, 5, 0, 1, 1);
 
         MainWindow->setCentralWidget(centralWidget);
 
@@ -241,14 +235,13 @@ public:
         label_6->setText(QCoreApplication::translate("MainWindow", "Distance parcourrue", nullptr));
         label_9->setText(QCoreApplication::translate("MainWindow", "Angle pendule", nullptr));
         label_10->setText(QCoreApplication::translate("MainWindow", "Arduino received", nullptr));
+        ArduinoUpdFrq_label->setText(QCoreApplication::translate("MainWindow", "??? Hz", nullptr));
+        Dist_label->setText(QCoreApplication::translate("MainWindow", "TextLabel", nullptr));
+        Energy_label->setText(QCoreApplication::translate("MainWindow", "TextLabel", nullptr));
         Position_selector->setItemText(0, QCoreApplication::translate("MainWindow", "Position", nullptr));
         Position_selector->setItemText(1, QCoreApplication::translate("MainWindow", "Vitesse", nullptr));
         Position_selector->setItemText(2, QCoreApplication::translate("MainWindow", "Acceleration", nullptr));
 
-        label_2->setText(QCoreApplication::translate("MainWindow", "Position Selector", nullptr));
-        ArduinoUpdFrq_label->setText(QCoreApplication::translate("MainWindow", "??? Hz", nullptr));
-        Dist_label->setText(QCoreApplication::translate("MainWindow", "TextLabel", nullptr));
-        Energy_label->setText(QCoreApplication::translate("MainWindow", "TextLabel", nullptr));
     } // retranslateUi
 
 };

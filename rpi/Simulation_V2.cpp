@@ -388,7 +388,7 @@ void Simulation_V2::CalculateOutput(double t, double Output[])
 {
     //std::cout <<"33: " << Tw << "\n";
     Output[0] = t;
-    Output[1] = qeDt;
+    Output[1] = xDDt;
     Sequence.push_back(Output[1]);
 }
 
