@@ -23,7 +23,10 @@ constexpr double startPos = 0.0;
 #define JSON_STATE "s"
 #define JSON_VOLTAGE "v"
 #define JSON_CURRENT "c"
-#define JSON_COMMAND "q"
-
+#define JSON_COMMAND_ACCELS "a"
+#define JSON_COMMAND_START "z"
+#define JSON_PID_P "kp"
+#define JSON_PID_I "ki"
+#define JSON_PID_D "kd"
 
 #endif

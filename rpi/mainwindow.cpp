@@ -11,6 +11,12 @@
 
 #include <iostream>
 
+// How to scale slider values (int) to 
+// actual PID gain
+#define P_SLIDER_CONV 10.0f
+#define I_SLIDER_CONV 10.0f
+#define D_SLIDER_CONV 10.0f
+
 MainWindow::MainWindow(QString portName, int updateRate, QWidget *parent)
   : QMainWindow(parent)
   , simulation(1.0)
@@ -25,6 +31,8 @@ MainWindow::MainWindow(QString portName, int updateRate, QWidget *parent)
   connectPlotBoxe();  // activation du plot, mettre en commentaire si pas utilise
   connectComboBox();
   connectSliders();
+  connectButtons();
+  
   // Serial protocole
   serialCom = new SerialProtocol(portName, BAUD_RATE);
   connectSerialPortRead();
@@ -49,9 +57,8 @@ void MainWindow::receiveFromSerial(QString msg) {
   msgBuffer += msg;
 
   if(msgBuffer.endsWith('\n')) {
-
-    
     is_readingArduino_ = true;
+
     QJsonDocument jsonResponse = QJsonDocument::fromJson(msgBuffer.toUtf8());
     if(~jsonResponse.isEmpty()) {
       QJsonObject jsonObj = jsonResponse.object();
@@ -64,6 +71,16 @@ void MainWindow::receiveFromSerial(QString msg) {
         arduino_model.state = static_cast<State>(stateint);
         ui->statebox->setCurrentIndex(stateint);
       }
+      if(!jsonObj[JSON_PID_P].isNull()) {
+        ui->PID_p->setValue(jsonObj[JSON_PID_P].toDouble() * P_SLIDER_CONV);
+      }
+      if(!jsonObj[JSON_PID_I].isNull()) {
+        ui->PID_i->setValue(jsonObj[JSON_PID_I].toDouble() * I_SLIDER_CONV);
+      }
+      if(!jsonObj[JSON_PID_D].isNull()) {
+        ui->PID_d->setValue(jsonObj[JSON_PID_D].toDouble() * D_SLIDER_CONV);
+      }
+
       if(!jsonObj[JSON_TIME].isNull()) {
         arduino_model.time_ms = jsonObj[JSON_TIME].toInt();
       }
@@ -114,7 +131,17 @@ void MainWindow::receiveFromSerial(QString msg) {
 }
 void MainWindow::onPeriodicUpdate()
 {
-  if(arduino_model.state == State::Swinging) {
+  if(arduino_model.state != State::Swinging) {
+    return;
+  }
+  if(pid_tune_mode) {
+    size_t start_time = arduino_model.time_ms - tune_start;
+    std::vector<double> samples(N_ACCELS_SAMPLES);
+    for(size_t i = 0; i < samples.size(); ++i) {
+      samples[i] = pidTune_fn(start_time + (COMMAND_DURATION_MS / N_ACCELS_SAMPLES) * i);
+    }
+    sendCommand(samples);
+  } else {
     unsigned long int est_simulation_time = last_simulation_time + (last_arduino_time-arduino_model.time_ms);
     double timeHint = static_cast<double>(est_simulation_time) / 1000.0;
 
@@ -133,7 +160,15 @@ void MainWindow::onPeriodicUpdate()
     sendCommand(simulation.RunSimulation(simTime, duration_s, N_ACCELS_SAMPLES, arduino_model.wheelAngSpeed, arduino_model.linSpeed));
   }
 }
-
+double MainWindow::pidTune_fn(unsigned int time) const
+{
+  time = time % 10000;
+  if(time > 6000) {
+    return 0.0;
+  }
+  double d_time = static_cast<double>(time) / 1000;
+  return d_time * std::sin(d_time * 10) / 100;
+}
 
 void MainWindow::connectTimers(int updateRate) 
 {
@@ -183,18 +218,25 @@ void MainWindow::connectComboBox()
 }
 void MainWindow::connectSliders()
 {
-  connect(ui->PID_p, SIGNAL(valueChanged(int)), this, SLOT(setPID()));
-  connect(ui->PID_i, SIGNAL(valueChanged(int)), this, SLOT(setPID()));
-  connect(ui->PID_d, SIGNAL(valueChanged(int)), this, SLOT(setPID())); 
-}
-// void MainWindow::connectLCD()
-// {
-//   connect(ui->Distance, SIGNAL())
+  // Send P gain when slider is moved
+  connect(ui->PID_p, SIGNAL(valueChanged(int)), this, SLOT(set_P(int)));
 
-// }
+  // Send I gain when slider is moved
+  connect(ui->PID_i, SIGNAL(valueChanged(int)), this, SLOT(set_I(int)));
+  
+  // Send D gain when slider is moved
+  connect(ui->PID_d, SIGNAL(valueChanged(int)), this, SLOT(set_D(int)));
+}
+void MainWindow::connectButtons()
+{
+  connect(ui->PIDtune_btn, SIGNAL(clicked()), this, SLOT(toggle_PIDTune()));
+  connect(ui->Stop_btn, SIGNAL(clicked()), this, SLOT(eStop()));
+}
+
 void MainWindow::sendCommand(std::vector<double> accels)
 { 
-  QString command_str = QString("\"") + JSON_COMMAND + "\": {\"startTime\":" + QString::number(arduino_model.time_ms) + ",\"accels\":[";
+  QString startTime_str = QString("{\"") + JSON_COMMAND_START + "\":" + QString::number(arduino_model.time_ms) + "}";
+  QString command_str = QString("{\"") + JSON_COMMAND_ACCELS + "\":[";
   for(size_t i = 0; i < accels.size(); ++i) {
     command_str += QString::number(accels[i]);
     if(i < accels.size()-1) {
@@ -226,12 +268,47 @@ void MainWindow::sendState(int state)
     sendMessage(QString("{\"") + JSON_STATE + "\":" + QString::number(state) + "}");
   }
 }
-void MainWindow::setPID()
+void MainWindow::set_P(int slider)
 {
-  serialCom->sendMessage("{\"PIDGains\":[" + 
-                      QString::number(static_cast<double>(ui->PID_p->value())/10.0) + ", " + 
-                      QString::number(static_cast<double>(ui->PID_i->value())/10.0) + ", " + 
-                      QString::number(static_cast<double>(ui->PID_d->value())/10.0) + "]}");
+  auto val_str = QString::number(static_cast<double>(slider)/P_SLIDER_CONV);
+  ui->P_label->setText(val_str);
+
+  if(is_readingArduino_) 
+    return; // Protect from potential feedback loops
+  serialCom->sendMessage(QString("{\"") + JSON_PID_P + "\":" + val_str + "}");
+}
+void MainWindow::set_I(int slider)
+{
+  auto val_str = QString::number(static_cast<double>(slider)/I_SLIDER_CONV);
+  ui->I_label->setText(val_str);
+
+  if(is_readingArduino_) 
+    return; // Protect from potential feedback loops
+  serialCom->sendMessage(QString("{\"") + JSON_PID_I + "\":" + val_str + "}");
+}
+void MainWindow::set_D(int slider)
+{
+  auto val_str = QString::number(static_cast<double>(slider)/D_SLIDER_CONV);
+  ui->D_label->setText(val_str);
+
+  if(is_readingArduino_) 
+    return; // Protect from potential feedback loops
+  serialCom->sendMessage(QString("{\"") + JSON_PID_D + "\":" + val_str + "}");
+}
+void MainWindow::toggle_PIDTune()
+{
+  pid_tune_mode = !pid_tune_mode;
+  if(pid_tune_mode) {
+    sendState(State::Swinging);
+    tune_start = arduino_model.time_ms;      
+  } else {
+    sendState(State::Ready);
+  }
+  // qDebug()<<"PIDTune: "<<pid_tune_mode<<"\n";
+}
+void MainWindow::eStop()
+{
+  sendState(State::Error);
 }
 void MainWindow::graphPosition(QJsonObject JsonObj)
 {

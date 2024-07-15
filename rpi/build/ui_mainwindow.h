@@ -29,28 +29,31 @@ class Ui_MainWindow
 public:
     QWidget *centralWidget;
     QGridLayout *gridLayout;
-    QSlider *PID_d;
-    QFrame *line;
-    QTextBrowser *textBrowser;
-    QGraphicsView *Position_view;
-    QSlider *PID_i;
-    QLabel *label_3;
-    QSlider *PID_p;
-    QLabel *label_7;
-    QLabel *label_5;
-    QComboBox *statebox;
-    QPushButton *pushButton_2;
-    QLabel *label_4;
-    QPushButton *pushButton;
     QLabel *label;
-    QLabel *label_6;
-    QLabel *label_9;
-    QLabel *label_10;
-    QLabel *ArduinoUpdFrq_label;
+    QSlider *PID_d;
+    QLabel *label_5;
+    QLabel *label_4;
+    QLabel *label_3;
+    QTextBrowser *textBrowser;
+    QPushButton *PIDtune_btn;
     QGraphicsView *Pot_view;
+    QComboBox *Position_selector;
+    QLabel *ArduinoUpdFrq_label;
+    QPushButton *Stop_btn;
     QLabel *Dist_label;
     QLabel *Energy_label;
-    QComboBox *Position_selector;
+    QLabel *label_10;
+    QSlider *PID_p;
+    QSlider *PID_i;
+    QLabel *label_7;
+    QComboBox *statebox;
+    QLabel *label_6;
+    QFrame *line;
+    QLabel *label_9;
+    QGraphicsView *Position_view;
+    QLabel *P_label;
+    QLabel *I_label;
+    QLabel *D_label;
 
     void setupUi(QMainWindow *MainWindow)
     {
@@ -64,19 +67,32 @@ public:
         gridLayout->setSpacing(6);
         gridLayout->setContentsMargins(11, 11, 11, 11);
         gridLayout->setObjectName(QString::fromUtf8("gridLayout"));
+        label = new QLabel(centralWidget);
+        label->setObjectName(QString::fromUtf8("label"));
+
+        gridLayout->addWidget(label, 1, 3, 1, 1);
+
         PID_d = new QSlider(centralWidget);
         PID_d->setObjectName(QString::fromUtf8("PID_d"));
-        PID_d->setMaximum(100);
+        PID_d->setMaximum(1000);
         PID_d->setOrientation(Qt::Horizontal);
 
         gridLayout->addWidget(PID_d, 3, 1, 1, 1);
 
-        line = new QFrame(centralWidget);
-        line->setObjectName(QString::fromUtf8("line"));
-        line->setFrameShape(QFrame::HLine);
-        line->setFrameShadow(QFrame::Sunken);
+        label_5 = new QLabel(centralWidget);
+        label_5->setObjectName(QString::fromUtf8("label_5"));
 
-        gridLayout->addWidget(line, 4, 0, 1, 4);
+        gridLayout->addWidget(label_5, 1, 0, 1, 1);
+
+        label_4 = new QLabel(centralWidget);
+        label_4->setObjectName(QString::fromUtf8("label_4"));
+
+        gridLayout->addWidget(label_4, 2, 0, 1, 1);
+
+        label_3 = new QLabel(centralWidget);
+        label_3->setObjectName(QString::fromUtf8("label_3"));
+
+        gridLayout->addWidget(label_3, 3, 0, 1, 1);
 
         textBrowser = new QTextBrowser(centralWidget);
         textBrowser->setObjectName(QString::fromUtf8("textBrowser"));
@@ -84,42 +100,70 @@ public:
         font.setPointSize(9);
         textBrowser->setFont(font);
 
-        gridLayout->addWidget(textBrowser, 13, 0, 1, 3);
+        gridLayout->addWidget(textBrowser, 13, 0, 1, 4);
 
-        Position_view = new QGraphicsView(centralWidget);
-        Position_view->setObjectName(QString::fromUtf8("Position_view"));
+        PIDtune_btn = new QPushButton(centralWidget);
+        PIDtune_btn->setObjectName(QString::fromUtf8("PIDtune_btn"));
 
-        gridLayout->addWidget(Position_view, 9, 0, 1, 2);
+        gridLayout->addWidget(PIDtune_btn, 2, 3, 1, 1);
 
-        PID_i = new QSlider(centralWidget);
-        PID_i->setObjectName(QString::fromUtf8("PID_i"));
-        PID_i->setMaximum(100);
-        PID_i->setOrientation(Qt::Horizontal);
+        Pot_view = new QGraphicsView(centralWidget);
+        Pot_view->setObjectName(QString::fromUtf8("Pot_view"));
 
-        gridLayout->addWidget(PID_i, 2, 1, 1, 1);
+        gridLayout->addWidget(Pot_view, 11, 0, 1, 2);
 
-        label_3 = new QLabel(centralWidget);
-        label_3->setObjectName(QString::fromUtf8("label_3"));
+        Position_selector = new QComboBox(centralWidget);
+        Position_selector->addItem(QString());
+        Position_selector->addItem(QString());
+        Position_selector->addItem(QString());
+        Position_selector->setObjectName(QString::fromUtf8("Position_selector"));
 
-        gridLayout->addWidget(label_3, 3, 0, 1, 1);
+        gridLayout->addWidget(Position_selector, 5, 0, 1, 1);
+
+        ArduinoUpdFrq_label = new QLabel(centralWidget);
+        ArduinoUpdFrq_label->setObjectName(QString::fromUtf8("ArduinoUpdFrq_label"));
+
+        gridLayout->addWidget(ArduinoUpdFrq_label, 12, 1, 1, 1);
+
+        Stop_btn = new QPushButton(centralWidget);
+        Stop_btn->setObjectName(QString::fromUtf8("Stop_btn"));
+
+        gridLayout->addWidget(Stop_btn, 2, 4, 1, 1);
+
+        Dist_label = new QLabel(centralWidget);
+        Dist_label->setObjectName(QString::fromUtf8("Dist_label"));
+
+        gridLayout->addWidget(Dist_label, 5, 4, 1, 1);
+
+        Energy_label = new QLabel(centralWidget);
+        Energy_label->setObjectName(QString::fromUtf8("Energy_label"));
+
+        gridLayout->addWidget(Energy_label, 11, 4, 1, 1);
+
+        label_10 = new QLabel(centralWidget);
+        label_10->setObjectName(QString::fromUtf8("label_10"));
+
+        gridLayout->addWidget(label_10, 12, 0, 1, 1);
 
         PID_p = new QSlider(centralWidget);
         PID_p->setObjectName(QString::fromUtf8("PID_p"));
-        PID_p->setMaximum(200);
+        PID_p->setMaximum(1000);
         PID_p->setSingleStep(1);
         PID_p->setOrientation(Qt::Horizontal);
 
         gridLayout->addWidget(PID_p, 1, 1, 1, 1);
 
+        PID_i = new QSlider(centralWidget);
+        PID_i->setObjectName(QString::fromUtf8("PID_i"));
+        PID_i->setMaximum(1000);
+        PID_i->setOrientation(Qt::Horizontal);
+
+        gridLayout->addWidget(PID_i, 2, 1, 1, 1);
+
         label_7 = new QLabel(centralWidget);
         label_7->setObjectName(QString::fromUtf8("label_7"));
 
-        gridLayout->addWidget(label_7, 11, 2, 1, 1);
-
-        label_5 = new QLabel(centralWidget);
-        label_5->setObjectName(QString::fromUtf8("label_5"));
-
-        gridLayout->addWidget(label_5, 1, 0, 1, 1);
+        gridLayout->addWidget(label_7, 11, 3, 1, 1);
 
         statebox = new QComboBox(centralWidget);
         statebox->addItem(QString());
@@ -139,70 +183,44 @@ public:
         sizePolicy.setHeightForWidth(statebox->sizePolicy().hasHeightForWidth());
         statebox->setSizePolicy(sizePolicy);
 
-        gridLayout->addWidget(statebox, 1, 3, 1, 1);
-
-        pushButton_2 = new QPushButton(centralWidget);
-        pushButton_2->setObjectName(QString::fromUtf8("pushButton_2"));
-
-        gridLayout->addWidget(pushButton_2, 2, 3, 1, 1);
-
-        label_4 = new QLabel(centralWidget);
-        label_4->setObjectName(QString::fromUtf8("label_4"));
-
-        gridLayout->addWidget(label_4, 2, 0, 1, 1);
-
-        pushButton = new QPushButton(centralWidget);
-        pushButton->setObjectName(QString::fromUtf8("pushButton"));
-
-        gridLayout->addWidget(pushButton, 2, 2, 1, 1);
-
-        label = new QLabel(centralWidget);
-        label->setObjectName(QString::fromUtf8("label"));
-
-        gridLayout->addWidget(label, 1, 2, 1, 1);
+        gridLayout->addWidget(statebox, 1, 4, 1, 1);
 
         label_6 = new QLabel(centralWidget);
         label_6->setObjectName(QString::fromUtf8("label_6"));
 
-        gridLayout->addWidget(label_6, 5, 2, 1, 1);
+        gridLayout->addWidget(label_6, 5, 3, 1, 1);
+
+        line = new QFrame(centralWidget);
+        line->setObjectName(QString::fromUtf8("line"));
+        line->setFrameShape(QFrame::HLine);
+        line->setFrameShadow(QFrame::Sunken);
+
+        gridLayout->addWidget(line, 4, 0, 1, 5);
 
         label_9 = new QLabel(centralWidget);
         label_9->setObjectName(QString::fromUtf8("label_9"));
 
         gridLayout->addWidget(label_9, 10, 0, 1, 1);
 
-        label_10 = new QLabel(centralWidget);
-        label_10->setObjectName(QString::fromUtf8("label_10"));
+        Position_view = new QGraphicsView(centralWidget);
+        Position_view->setObjectName(QString::fromUtf8("Position_view"));
 
-        gridLayout->addWidget(label_10, 12, 0, 1, 1);
+        gridLayout->addWidget(Position_view, 9, 0, 1, 2);
 
-        ArduinoUpdFrq_label = new QLabel(centralWidget);
-        ArduinoUpdFrq_label->setObjectName(QString::fromUtf8("ArduinoUpdFrq_label"));
+        P_label = new QLabel(centralWidget);
+        P_label->setObjectName(QString::fromUtf8("P_label"));
 
-        gridLayout->addWidget(ArduinoUpdFrq_label, 12, 1, 1, 1);
+        gridLayout->addWidget(P_label, 1, 2, 1, 1);
 
-        Pot_view = new QGraphicsView(centralWidget);
-        Pot_view->setObjectName(QString::fromUtf8("Pot_view"));
+        I_label = new QLabel(centralWidget);
+        I_label->setObjectName(QString::fromUtf8("I_label"));
 
-        gridLayout->addWidget(Pot_view, 11, 0, 1, 2);
+        gridLayout->addWidget(I_label, 2, 2, 1, 1);
 
-        Dist_label = new QLabel(centralWidget);
-        Dist_label->setObjectName(QString::fromUtf8("Dist_label"));
+        D_label = new QLabel(centralWidget);
+        D_label->setObjectName(QString::fromUtf8("D_label"));
 
-        gridLayout->addWidget(Dist_label, 5, 3, 1, 1);
-
-        Energy_label = new QLabel(centralWidget);
-        Energy_label->setObjectName(QString::fromUtf8("Energy_label"));
-
-        gridLayout->addWidget(Energy_label, 11, 3, 1, 1);
-
-        Position_selector = new QComboBox(centralWidget);
-        Position_selector->addItem(QString());
-        Position_selector->addItem(QString());
-        Position_selector->addItem(QString());
-        Position_selector->setObjectName(QString::fromUtf8("Position_selector"));
-
-        gridLayout->addWidget(Position_selector, 5, 0, 1, 1);
+        gridLayout->addWidget(D_label, 3, 2, 1, 1);
 
         MainWindow->setCentralWidget(centralWidget);
 
@@ -214,9 +232,21 @@ public:
     void retranslateUi(QMainWindow *MainWindow)
     {
         MainWindow->setWindowTitle(QCoreApplication::translate("MainWindow", "Centre de controle", nullptr));
-        label_3->setText(QCoreApplication::translate("MainWindow", "De-1", nullptr));
-        label_7->setText(QCoreApplication::translate("MainWindow", "Energie consommee", nullptr));
+        label->setText(QCoreApplication::translate("MainWindow", "Etat arduino", nullptr));
         label_5->setText(QCoreApplication::translate("MainWindow", "Pe-1", nullptr));
+        label_4->setText(QCoreApplication::translate("MainWindow", "Ie-1", nullptr));
+        label_3->setText(QCoreApplication::translate("MainWindow", "De-1", nullptr));
+        PIDtune_btn->setText(QCoreApplication::translate("MainWindow", "PidTune", nullptr));
+        Position_selector->setItemText(0, QCoreApplication::translate("MainWindow", "Position", nullptr));
+        Position_selector->setItemText(1, QCoreApplication::translate("MainWindow", "Vitesse", nullptr));
+        Position_selector->setItemText(2, QCoreApplication::translate("MainWindow", "Acceleration", nullptr));
+
+        ArduinoUpdFrq_label->setText(QCoreApplication::translate("MainWindow", "??? Hz", nullptr));
+        Stop_btn->setText(QCoreApplication::translate("MainWindow", "Stop", nullptr));
+        Dist_label->setText(QCoreApplication::translate("MainWindow", "TextLabel", nullptr));
+        Energy_label->setText(QCoreApplication::translate("MainWindow", "TextLabel", nullptr));
+        label_10->setText(QCoreApplication::translate("MainWindow", "Arduino received", nullptr));
+        label_7->setText(QCoreApplication::translate("MainWindow", "Energie consommee", nullptr));
         statebox->setItemText(0, QCoreApplication::translate("MainWindow", "Ready", nullptr));
         statebox->setItemText(1, QCoreApplication::translate("MainWindow", "Stabilize", nullptr));
         statebox->setItemText(2, QCoreApplication::translate("MainWindow", "ReturnHome", nullptr));
@@ -228,20 +258,11 @@ public:
         statebox->setItemText(8, QCoreApplication::translate("MainWindow", "ShortCircuitBackward", nullptr));
         statebox->setItemText(9, QCoreApplication::translate("MainWindow", "Error", nullptr));
 
-        pushButton_2->setText(QCoreApplication::translate("MainWindow", "Stop", nullptr));
-        label_4->setText(QCoreApplication::translate("MainWindow", "Ie-1", nullptr));
-        pushButton->setText(QCoreApplication::translate("MainWindow", "Start", nullptr));
-        label->setText(QCoreApplication::translate("MainWindow", "Etat arduino", nullptr));
         label_6->setText(QCoreApplication::translate("MainWindow", "Distance parcourrue", nullptr));
         label_9->setText(QCoreApplication::translate("MainWindow", "Angle pendule", nullptr));
-        label_10->setText(QCoreApplication::translate("MainWindow", "Arduino received", nullptr));
-        ArduinoUpdFrq_label->setText(QCoreApplication::translate("MainWindow", "??? Hz", nullptr));
-        Dist_label->setText(QCoreApplication::translate("MainWindow", "TextLabel", nullptr));
-        Energy_label->setText(QCoreApplication::translate("MainWindow", "TextLabel", nullptr));
-        Position_selector->setItemText(0, QCoreApplication::translate("MainWindow", "Position", nullptr));
-        Position_selector->setItemText(1, QCoreApplication::translate("MainWindow", "Vitesse", nullptr));
-        Position_selector->setItemText(2, QCoreApplication::translate("MainWindow", "Acceleration", nullptr));
-
+        P_label->setText(QCoreApplication::translate("MainWindow", "TextLabel", nullptr));
+        I_label->setText(QCoreApplication::translate("MainWindow", "TextLabel", nullptr));
+        D_label->setText(QCoreApplication::translate("MainWindow", "TextLabel", nullptr));
     } // retranslateUi
 
 };

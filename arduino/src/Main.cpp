@@ -63,6 +63,8 @@ unsigned int state_start_ms = 0; // Point in time when the current state was set
 
 Command command;
 State state { State::Ready };
+bool sendState { true };
+bool sendPID { true };
 
 // Function that gets called at the end of the loop if
 // a message is received on the serial buffer
@@ -108,6 +110,8 @@ void setup()
 
   pid_.setMeasurementFunc([]() -> double { return wheelTicks.accel(); }); //acceleration lineaire
   pid_.setCommandFunc([](double command){ AX_.setMotorPWM(MOTOR_PIN, command); });
+
+  sendMsg();
 }
 
 void loop()
@@ -150,6 +154,9 @@ void loop()
   case State::Ready:
     AX_.setMotorPWM(MOTOR_PIN, 0.0);
     break;
+  case State::Error:
+    AX_.setMotorPWM(MOTOR_PIN, 0.0);
+    break;
   }
 
   pendulumPot.update(analogRead(PENDULUMPOT_PIN));
@@ -182,33 +189,43 @@ void serialEvent()
     return;
   }
 
-  parse_msg = doc["PIDGains"];
+  // Parse msg for PID gains
+  parse_msg = doc[JSON_PID_P];
   if(!parse_msg.isNull()) {
     pid_.disable();
-    pid_.setGains(parse_msg[0], parse_msg[1], parse_msg[2]);
+    pid_.setKp(parse_msg.as<double>());
+    pid_.enable();
+  }
+  parse_msg = doc[JSON_PID_I];
+  if(!parse_msg.isNull()) {
+    pid_.disable();
+    pid_.setKi(parse_msg.as<double>());
+    pid_.enable();
+  }
+  parse_msg = doc[JSON_PID_D];
+  if(!parse_msg.isNull()) {
+    pid_.disable();
+    pid_.setKd(parse_msg.as<double>());
     pid_.enable();
   }
 
-  parse_msg = doc[JSON_COMMAND];
+  // Parse msg for command input
+  // first start time, then acceleration points
+  parse_msg = doc[JSON_COMMAND_START];
   if(!parse_msg.isNull()) {
-    parse_msg = doc[JSON_COMMAND]["startTime"];
-    if(parse_msg.isNull())
-      return;
     command.startTime_ms = parse_msg.as<unsigned int>();
-
-    parse_msg = doc[JSON_COMMAND]["accels"];
-    if(parse_msg.isNull())
-      return;
-
+  }
+  parse_msg = doc[JSON_COMMAND_ACCELS];
+  if(!parse_msg.isNull()) {
     for(int i = 0; i < N_ACCELS_SAMPLES; ++i) {
-      command.Tm[i] = parse_msg[i];
+      command.Tm[i] = parse_msg[i].as<double>();
     }
   }
 
-  // Analyse des éléments du message message
+  // Parse msg for state input
   parse_msg = doc[JSON_STATE];
   if(!parse_msg.isNull()){
-     state = static_cast<State>(doc[JSON_STATE].as<int>());
+    set_state(static_cast<State>(doc[JSON_STATE].as<int>()));
   }
 }
 void sendMsg()
@@ -218,6 +235,18 @@ void sendMsg()
   // Elements du message
 
   doc[JSON_TIME] = millis();
+
+  if(sendState) {
+    doc[JSON_STATE] = static_cast<int>(state);
+    sendState = false;
+  }
+  if(sendPID) {
+    doc[JSON_PID_P] = pid_.getKp();
+    doc[JSON_PID_I] = pid_.getKi();
+    doc[JSON_PID_D] = pid_.getKd();
+    sendPID = false;
+  }
+
   doc[JSON_GOAL] = pid_.getGoal();
 
   doc[JSON_WHEEL] = wheelTicks.position();
@@ -225,25 +254,11 @@ void sendMsg()
   doc[JSON_DDWHEEL] = wheelTicks.accel();
   // doc["dlin"] = wheelTicks.speed() * 2 * PI * wheelRadius;
 
-  //doc["potetentiometre"] = potentiometre_.getAngle();
-  // doc["ClawServo"] = clawServo_.read();
-  // doc["encodeur"] = AX_.readEncoder(MOTOR_PIN);
-  // doc["pendule"] = analogRead(PENDULUMPOT_PIN);
-  /*
-  doc["accelX"] = imu_.getAccelX();
-  doc["accelY"] = imu_.getAccelY();
-  doc["accelZ"] = imu_.getAccelZ();
-  doc["gyroX"] = imu_.getGyroX();
-  doc["gyroY"] = imu_.getGyroY();
-  doc["gyroZ"] = imu_.getGyroZ();
-  */
-
   doc[JSON_PENDULUM] = pendulumPot.position();
   doc[JSON_DPENDULUM] = pendulumPot.speed();
 
   doc[JSON_ATGOAL] = pid_.isAtGoal();
-  // doc["actualTime"] = pid_.getActualDt();
-  doc[JSON_STATE] = static_cast<int>(state);
+
   doc[JSON_VOLTAGE] = AX_.getVoltage();
   doc[JSON_CURRENT] = AX_.getCurrent();
 
@@ -317,6 +332,9 @@ void update_state()
 }
 void set_state(State newState)
 {
+  if(state == State::Error) {
+    return;
+  }
   switch(newState) {
   case State::TakingTree:
   case State::Ready:
@@ -324,11 +342,12 @@ void set_state(State newState)
   case State::Swinging:
   case State::JustGonnaSendIt:
   case State::Drop:
-  case State::ShortCircuitForward:
-  case State::ShortCircuitBackward:
     pid_.enable();
     break;
   case State::ReturnHome:
+  case State::Error:
+  case State::ShortCircuitForward:
+  case State::ShortCircuitBackward:
     pid_.disable();
     break;
   default:

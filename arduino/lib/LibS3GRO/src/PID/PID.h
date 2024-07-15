@@ -63,18 +63,21 @@ class PID
     Proportional constant
     */
     void setKp(double kp){Kp_ = kp;};
+    double getKp() const { return Kp_; }
 
     /** Method to set Ki
     @param Ki
     Integral constant
     */
     void setKi(double ki){Ki_ = ki;};
-
+    double getKi() const { return Ki_; }
+    
     /** Method to set Kd
     @param Kd
     Derivative constant
     */
     void setKd(double kd){Kd_ = kd;};
+    double getKd() const { return Kd_; }
 
     /** Method to set period attribute
     @param period
