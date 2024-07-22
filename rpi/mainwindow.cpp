@@ -20,10 +20,28 @@
 MainWindow::MainWindow(QString portName, int updateRate, QWidget *parent)
   : QMainWindow(parent)
   , simulation(1.0)
+  , currentPos(0.1, 0.1)
+ // , currentPot(0, 0.2618)
+  , currentSpeed(0.01, 0.01)
+  , currentAccel(0.001, 0.001)
+  , pidTarget(0.001, 0.001)
 {
   // Initialisation du UI
   ui = new Ui::MainWindow;
   ui->setupUi(this);
+
+  // Initialisation du graphique
+    // Étape 2.2: Associer chart_ au QChartView dans l'interface
+    ui->Pot_view->setChart(&chartPot_);
+
+    // Étape 2.3: Donner un titre au graphique
+   chartPot_.setTitle("Angle Potentiometre");
+
+    // Étape 2.4: Cacher la légende
+   chartPot_.legend()->hide();
+
+    // Étape 2.5: Associer series_ à chart_
+   chartPot_.addSeries(&seriesPot_);
 
 
   // Fonctions de connections events/slots
@@ -32,7 +50,7 @@ MainWindow::MainWindow(QString portName, int updateRate, QWidget *parent)
   connectComboBox();
   connectSliders();
   connectButtons();
-  
+
   // Serial protocole
   serialCom = new SerialProtocol(portName, BAUD_RATE);
   connectSerialPortRead();
@@ -47,7 +65,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-  sendMessage("{\"read\": \"false\"}"); //Arret de communication periodique de l'arduino
+  // sendMessage("{\"read\": \"false\"}"); //Arret de communication periodique de l'arduino
   event->accept();
 }
 
@@ -55,11 +73,13 @@ void MainWindow::receiveFromSerial(QString msg) {
   // Fonction appelee lors de reception sur port serie
   // Accumulation des morceaux de message
   msgBuffer += msg;
-
+  
   if(msgBuffer.endsWith('\n')) {
     is_readingArduino_ = true;
+    // std::cout<<"received stuff: "<<msgBuffer.toStdString()<<"\n";
 
     QJsonDocument jsonResponse = QJsonDocument::fromJson(msgBuffer.toUtf8());
+    // std::cout<<"received stuff: "<<msgBuffer.toStdString()<<"\n";
     if(~jsonResponse.isEmpty()) {
       QJsonObject jsonObj = jsonResponse.object();
 
@@ -111,26 +131,47 @@ void MainWindow::receiveFromSerial(QString msg) {
       lastUpdMillis = arduino_model.time_ms;
 
       if(delta_s < 1000) {
-        qDebug()<<energy<<": "<<voltage<<",  "<<current<<",  "<<delta_s<<"\n";
+       // qDebug()<<energy<<": "<<voltage<<",  "<<current<<",  "<<delta_s<<"\n";
         energy += voltage*current*delta_s;
         ui->Energy_label->setText(QString::number(energy) + " J");
       }
+      ui->Position_label->setText(QString::number(arduino_model.wheel_pos) + " m");
+      //test potentiometre
+      if(jsonObj.contains(JSON_PENDULUM)) {
+                double pendulum = jsonObj[JSON_PENDULUM].toDouble();
+
+                seriesPot_.append(arduino_model.time_ms, pendulum);
+
+                // Étape 3. Ajouter les données à series_ et mettre à jour chart_
+                chartPot_.removeSeries(&seriesPot_);
+                chartPot_.addSeries(&seriesPot_);
+                chartPot_.createDefaultAxes();
+            }
       // Plot data
-      scene.clear();
-      currentPot.addData(jsonObj[JSON_PENDULUM].toDouble());
-      currentPot.draw(&scene);
-      // Ajouter donnee au chart
+      // scene.clear();
+      // currentPot.addData(jsonObj[JSON_PENDULUM].toDouble());
+      // currentPot.draw(&scene);
+      // // Ajouter donnee au chart
 
       graphPosition(jsonObj);
 
-      msgBuffer = "";
       is_readingArduino_ = false;
+    } else {
+      std::cout<<msgBuffer.toStdString()<<"\n";
     }
-
+    msgBuffer = "";
   }
 }
 void MainWindow::onPeriodicUpdate()
 {
+  if(notInitated) {
+    // Ask the arduino to send state, pid and pics
+    // sendMessage(QString("{\"") + JSON_SEND + "\":\"\"}");
+    
+    // sendMessage(QString("{\"") + JSON_SEND + "\": \"false\"}");
+    // sendMessage(QString("{\"") + JSON_SEND + "\":" + QString::number(1) + "}");
+    notInitated = false;
+  }
   if(arduino_model.state != State::Swinging) {
     return;
   }
@@ -167,7 +208,7 @@ double MainWindow::pidTune_fn(unsigned int time) const
     return 0.0;
   }
   double d_time = static_cast<double>(time) / 1000;
-  return d_time * std::sin(d_time * 10) / 100;
+  return d_time * std::sin(d_time * 10) / 50;
 }
 
 void MainWindow::connectTimers(int updateRate) 
@@ -188,12 +229,12 @@ void MainWindow::connectSerialPortRead()
 void MainWindow::connectPlotBoxe() 
 {
   
-  ui->Pot_view->setScene(&scene);
+  //ui->Pot_view->setScene(&scene);
   ui->Position_view->setScene(&scenePosition);
   // Plot data
-  currentPot.setDataLen(300);
-  currentPot.setColor(255,0,0);
-  currentPot.setGain(25);
+  // currentPot.setDataLen(300);
+  // currentPot.setColor(255,0,0);
+  // currentPot.setGain(25);
 
   currentPos.setDataLen(300);
   currentPos.setColor(255,0,0);
@@ -233,28 +274,27 @@ void MainWindow::connectButtons()
   connect(ui->Stop_btn, SIGNAL(clicked()), this, SLOT(eStop()));
 }
 
-void MainWindow::sendCommand(std::vector<double> accels)
-{ 
-  QString startTime_str = QString("{\"") + JSON_COMMAND_START + "\":" + QString::number(arduino_model.time_ms) + "}";
-  QString command_str = QString("{\"") + JSON_COMMAND_ACCELS + "\":[";
-  for(size_t i = 0; i < accels.size(); ++i) {
-    command_str += QString::number(accels[i]);
-    if(i < accels.size()-1) {
-      command_str += ",";
-    } else {
-      command_str += "]";
-    }
-  }
-  command_str += "}";
-
-  sendMessage(command_str);
+void MainWindow::sendMessage(QString msg)
+{
+  serialCom->sendMessage(msg+"\n");
+  // qDebug() << msg;
+  std::cout<<msg.toStdString()<<"\n";
 }
 
-void MainWindow::sendMessage(QString msg) 
-{
-  // Fonction d'ecriture sur le port serie
-  serialCom->sendMessage(msg);
-  qDebug() << msg;
+void MainWindow::sendCommand(std::vector<double> accels)
+{ 
+  QString startTime_str = QString("\"") + JSON_COMMAND_START + "\":" + QString::number(arduino_model.time_ms);
+  QString accel_str = QString("\"") + JSON_COMMAND_ACCELS + "\":[";
+  for(size_t i = 0; i < accels.size(); ++i) {
+    accel_str += QString::number(accels[i]);
+    if(i < accels.size()-1) {
+      accel_str += ",";
+    } else {
+      accel_str += "]";
+    }
+  }
+  QString command_str = "{" + startTime_str + "," + accel_str + "}";
+  sendMessage(command_str);
 }
 
 void MainWindow::setUpdateRate(int rateMs) 
@@ -275,7 +315,7 @@ void MainWindow::set_P(int slider)
 
   if(is_readingArduino_) 
     return; // Protect from potential feedback loops
-  serialCom->sendMessage(QString("{\"") + JSON_PID_P + "\":" + val_str + "}");
+  sendMessage(QString("{\"") + JSON_PID_P + "\":" + val_str + "}");
 }
 void MainWindow::set_I(int slider)
 {
@@ -284,7 +324,7 @@ void MainWindow::set_I(int slider)
 
   if(is_readingArduino_) 
     return; // Protect from potential feedback loops
-  serialCom->sendMessage(QString("{\"") + JSON_PID_I + "\":" + val_str + "}");
+  sendMessage(QString("{\"") + JSON_PID_I + "\":" + val_str + "}");
 }
 void MainWindow::set_D(int slider)
 {
@@ -293,7 +333,7 @@ void MainWindow::set_D(int slider)
 
   if(is_readingArduino_) 
     return; // Protect from potential feedback loops
-  serialCom->sendMessage(QString("{\"") + JSON_PID_D + "\":" + val_str + "}");
+  sendMessage(QString("{\"") + JSON_PID_D + "\":" + val_str + "}");
 }
 void MainWindow::toggle_PIDTune()
 {
@@ -326,10 +366,10 @@ void MainWindow::graphPosition(QJsonObject JsonObj)
       break;
     case Speed:
       currentSpeed.draw(&scenePosition);
+      pidTarget.draw(&scenePosition);
       break;
     case Acceleration:
       currentAccel.draw(&scenePosition);
-      pidTarget.draw(&scenePosition);
       break;
   }
 }

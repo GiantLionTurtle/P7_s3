@@ -40,7 +40,7 @@ struct PotWrapper {
   int raw() const { return curr; }
   double position() const { return position(curr); }
   double position(int val) const { return map_me_up(val) - zero; }
-  double speed() const { return position(curr) - position(last); }
+  double speed() const { return map_me_up(curr) - map_me_up(last); }
   double map_me_up(int val) const { return map(static_cast<double>(val), 0.0, 1023.0, minRange, maxRange); }
 };
 

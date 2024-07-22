@@ -11,34 +11,32 @@
 
 #define DROP_DELAY 200 // ms
 #define TAKE_DELAY 1000 // ms
-#define PENDULUMSPEED_STABILIZED 0.02
 
 #define PENDULUMPOT_PIN A7
 #define CLAWSERVO_PIN 8
-#define FORWARD_BTN_PIN 17
-#define BACKWARD_BTN_PIN 15
-#define LEFT_BTN_PIN 14
-#define RIGHT_BTN_PIN 16
+#define FORWARD_BTN_PIN 16 
+#define BACKWARD_BTN_PIN 14 
+#define LEFT_BTN_PIN 17
+#define RIGHT_BTN_PIN 15
 #define MOTOR_PIN 1
+#define MAGNET_PIN 32
 
 // Modelisation
 
 const double pendulumLength = 0.4; // m
 const double railHeight = 1.0; // m
 const double wheelRadius = 0.05; // m
-const double ticksPerTurn = 6400;
+const double ticksPerTurn = 3200;
 
 const double obstaclePos = 0.5;
 
-const double stabilization_coeff = -0.2;
-const double pendulumSpeed_stabilized = 0.02; // rad/s
+const double stabilization_coeff = 0.3;
+const double pendulumSpeed_stabilized = 0.05; // rad/s
+const double pendulumPos_stabilized = 0.1;
 
 const double homePos = 0.0;
 
 const double maxTorque = 2;
-
-const int clawOpen_angle = 0;
-const int clawClosed_angle = 180;
 
 BoundingBox sendItBox(Position(obstaclePos-0.1, 0.2), Position(obstaclePos+0.2, 0.1));
 BoundingBox dropBox(Position(obstaclePos+0.2, 0.2), Position(obstaclePos+0.5, 0.0));
@@ -50,21 +48,19 @@ ArduinoX AX_;                       // objet arduinoX
 MegaServo servo_;                   // objet servomoteur
 IMU9DOF imu_;                       // objet imu
 PID pid_;                           // objet PID
-MegaServo clawServo_;
-//POTENTIOMETRE potentiometre_();
 
 Position EOTPos;
 
 PotWrapper pendulumPot(-2.35619449, 2.35619449); // -135 to 135 deg
 TicksWrapper wheelTicks((2.0*PI*wheelRadius)/(ticksPerTurn), startPos);
 
-unsigned int last_send_time_ms = 0;
-unsigned int state_start_ms = 0; // Point in time when the current state was set
+unsigned long last_send_time_ms = 0;
+unsigned long state_start_ms = 0; // Point in time when the current state was set
 
 Command command;
 State state { State::Ready };
-bool sendState { true };
-bool sendPID { true };
+
+String serialReceived;
 
 // Function that gets called at the end of the loop if
 // a message is received on the serial buffer
@@ -88,30 +84,33 @@ void update_state();
 // sets flags
 void set_state(State st);
 
+void manageSerial();
+
 void setup()
 {
   Serial.begin(BAUD_RATE);
 
   AX_.init();                       // initialisation de la carte ArduinoX 
-  // imu_.init();                      // initialisation de la centrale inertielle
   
   pinMode(PENDULUMPOT_PIN, INPUT);
   pinMode(FORWARD_BTN_PIN, INPUT);
   pinMode(BACKWARD_BTN_PIN, INPUT);
   pinMode(LEFT_BTN_PIN, INPUT);
   pinMode(RIGHT_BTN_PIN, INPUT);
-  clawServo_.attach(CLAWSERVO_PIN);
+  pinMode(MAGNET_PIN, OUTPUT);
+  
   pendulumPot.calibrate(analogRead(PENDULUMPOT_PIN));
+
   // Initialisation du PID
-  pid_.setGains(0.25,0.1 ,0);
+  pid_.setGains(15, 5, 2);
   // Attache des fonctions de retour
   pid_.setEpsilon(0.001);
-  pid_.setPeriod(200);
+  pid_.setPeriod(10);
 
   pid_.setMeasurementFunc([]() -> double { return wheelTicks.accel(); }); //acceleration lineaire
-  pid_.setCommandFunc([](double command){ AX_.setMotorPWM(MOTOR_PIN, command); });
+  pid_.setCommandFunc([](double pid_voltage){ AX_.setMotorPWM(MOTOR_PIN, pid_voltage); });
 
-  sendMsg();
+  // sendMsg();
 }
 
 void loop()
@@ -134,22 +133,22 @@ void loop()
   case State::TakingTree:
     AX_.setMotorPWM(MOTOR_PIN, 0.0);
     if(millis()-state_start_ms < TAKE_DELAY/2) {
-      clawServo_.write(clawOpen_angle);
+      digitalWrite(MAGNET_PIN, LOW);
     } else {
-      clawServo_.write(clawClosed_angle);
+      digitalWrite(MAGNET_PIN, HIGH);
     }
     break;
   case State::Drop:
-    clawServo_.write(clawOpen_angle);
+    digitalWrite(MAGNET_PIN, LOW);
     break;
   case State::JustGonnaSendIt:
     pid_.setGoal(maxTorque);
     break;
   case State::ShortCircuitBackward:
-    AX_.setMotorPWM(MOTOR_PIN, -0.8);
+    AX_.setMotorPWM(MOTOR_PIN, -0.1);
     break;
   case State::ShortCircuitForward:
-    AX_.setMotorPWM(MOTOR_PIN, 0.8);
+    AX_.setMotorPWM(MOTOR_PIN, 0.1);
     break;
   case State::Ready:
     AX_.setMotorPWM(MOTOR_PIN, 0.0);
@@ -166,21 +165,36 @@ void loop()
   // AX_.setMotorPWM(MOTOR_PIN, 0.5);
 
   sendMsg();
+  // Serial.println("Pouet");
+  // Serial.println(pendulumPot.speed(), 8);
   // Serial.println(digitalRead(BACKWARD_PIN));
   last_send_time_ms = millis();
-
 }
 
 // Gets called at the end of each loop if there is
 // data in the serial buffer
 void serialEvent()
 {
+  while(Serial.available()) {
+    char c = Serial.read();
+    serialReceived += c;
+    if(c == '\n') {
+      manageSerial();
+    }
+  }
+}
+void manageSerial()
+{
+  // Serial.print("Got: ");
+  // Serial.println(serialReceived);
+
   // Lecture du message Json
   StaticJsonDocument<500> doc;
   JsonVariant parse_msg;
 
   // Lecture sur le port Seriel
-  DeserializationError error = deserializeJson(doc, Serial);
+  DeserializationError error = deserializeJson(doc, serialReceived);
+  serialReceived = "";
 
   // Si erreur dans le message
   if (error) {
@@ -215,18 +229,27 @@ void serialEvent()
   if(!parse_msg.isNull()) {
     command.startTime_ms = parse_msg.as<unsigned int>();
   }
+  
   parse_msg = doc[JSON_COMMAND_ACCELS];
   if(!parse_msg.isNull()) {
     for(int i = 0; i < N_ACCELS_SAMPLES; ++i) {
       command.Tm[i] = parse_msg[i].as<double>();
+      // Serial.print("Command: ");
+      // Serial.println(command.Tm[i]);
     }
   }
-
   // Parse msg for state input
   parse_msg = doc[JSON_STATE];
-  if(!parse_msg.isNull()){
+  if(!parse_msg.isNull()) {
+    // Serial.println("Set state!");
     set_state(static_cast<State>(doc[JSON_STATE].as<int>()));
   }
+
+  // parse_msg = doc[JSON_SEND];
+  // if(!parse_msg.isNull()) {
+    
+  //   sendArdState = true;
+  // }
 }
 void sendMsg()
 {
@@ -236,17 +259,15 @@ void sendMsg()
 
   doc[JSON_TIME] = millis();
 
-  if(sendState) {
-    doc[JSON_STATE] = static_cast<int>(state);
-    sendState = false;
-  }
-  if(sendPID) {
-    doc[JSON_PID_P] = pid_.getKp();
-    doc[JSON_PID_I] = pid_.getKi();
-    doc[JSON_PID_D] = pid_.getKd();
-    sendPID = false;
-  }
+  doc[JSON_STATE] = static_cast<int>(state);
 
+  // if(sendArdState) {
+  doc[JSON_PID_P] = pid_.getKp();
+  doc[JSON_PID_I] = pid_.getKi();
+  doc[JSON_PID_D] = pid_.getKd();
+    // sendArdState = false;
+  // }
+  
   doc[JSON_GOAL] = pid_.getGoal();
 
   doc[JSON_WHEEL] = wheelTicks.position();
@@ -269,7 +290,8 @@ void sendMsg()
 }
 double stabilize()
 {
-  return stabilization_coeff * pendulumPot.speed();
+  return stabilization_coeff * pendulumPot.position();
+  // return 0.8;
 }
 void update_eot()
 {
@@ -284,15 +306,18 @@ void update_state()
   if(digitalRead(FORWARD_BTN_PIN)) {
     set_state(State::ShortCircuitForward);
   } 
+  if(digitalRead(LEFT_BTN_PIN) || digitalRead(RIGHT_BTN_PIN)) {
+    set_state(State::Error);
+  }
 
   switch(state) {
   case State::Stabilize:
-    if(pendulumPot.speed() < PENDULUMSPEED_STABILIZED) {
+    if(abs(pendulumPot.speed()) < pendulumSpeed_stabilized && abs(pendulumPot.position()) < pendulumPos_stabilized) {
       set_state(State::ReturnHome);
     }
     break;
   case State::ReturnHome:
-    if(homeBox.contains(EOTPos)) {
+    if(abs(wheelTicks.position()-homePos) < 0.01) {
       set_state(State::Ready);
     }
     break;
@@ -302,20 +327,22 @@ void update_state()
     }
     break;
   case State::Swinging:
-    if(sendItBox.contains(EOTPos)) {
+    if(EOTPos.y > (railHeight-pendulumLength+0.01) && pendulumPot.position() > 0.1) {
       set_state(State::JustGonnaSendIt);
     }
     break;
   case State::JustGonnaSendIt:
-    if(dropBox.contains(EOTPos)) {
+    if(dropBox.contains(EOTPos) || wheelTicks.position() > obstaclePos) {
       set_state(State::Drop);
     }
     break;
+    
   case State::Drop:
     if(millis() - state_start_ms > DROP_DELAY) {
       set_state(State::Stabilize);
     }
     break;
+    
   case State::ShortCircuitBackward:
     if(!digitalRead(BACKWARD_BTN_PIN)) {
       set_state(State::Ready);
@@ -330,24 +357,28 @@ void update_state()
     break;
   }
 }
+
 void set_state(State newState)
 {
-  if(state == State::Error) {
+  Serial.print("Setstate ");
+  Serial.println(static_cast<int>(newState));
+  if(state == State::Error && newState != State::Ready) {
     return;
   }
+  
   switch(newState) {
-  case State::TakingTree:
-  case State::Ready:
-  case State::Stabilize:
   case State::Swinging:
   case State::JustGonnaSendIt:
-  case State::Drop:
     pid_.enable();
     break;
+  case State::TakingTree:
+  case State::Stabilize:
+  case State::Drop:
   case State::ReturnHome:
   case State::Error:
   case State::ShortCircuitForward:
   case State::ShortCircuitBackward:
+  case State::Ready:
     pid_.disable();
     break;
   default:

@@ -28,5 +28,6 @@ constexpr double startPos = 0.0;
 #define JSON_PID_P "kp"
 #define JSON_PID_I "ki"
 #define JSON_PID_D "kd"
+#define JSON_SEND "d"
 
 #endif

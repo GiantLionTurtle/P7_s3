@@ -14,6 +14,10 @@
 #include <QGraphicsItem>
 #include <QtWidgets>
 
+#include <QtCharts/QChartView>
+#include <QtCharts/QLineSeries>
+#include <QtCharts>
+
 namespace Ui {
 class MainWindow;
 }
@@ -77,10 +81,12 @@ private:
   bool is_readingArduino_ {false }; // Reading flag to avoid callback loops
   SerialProtocol* serialCom;
 
+  QLineSeries seriesPot_;
+  QChart chartPot_;
 
   QGraphicsScene scene;
   QGraphicsScene scenePosition;
-  Plot currentPot;
+  //Plot currentPot;
   Plot currentPos;
   Plot currentSpeed;
   Plot currentAccel;
@@ -90,6 +96,7 @@ private:
   double dist_tot { 0 };
   double last_dist { startPos };
   double energy { 0 };
+  bool notInitated { true };
 
 protected:
   Ui::MainWindow *ui;

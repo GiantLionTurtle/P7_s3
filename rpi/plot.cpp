@@ -2,7 +2,9 @@
 
 // Functions
 
-Plot::Plot(){
+Plot::Plot(double gradX_, double gradY_){
+    gradX = gradX_;
+    gradY = gradY_;
 }
 
 void Plot::setColor(int r, int g, int b){
@@ -30,6 +32,31 @@ void Plot::clear()
   data.clear();
 }
 void Plot::draw(QGraphicsScene* scene){
+    if(data.length() == 0)
+        return;
+
+    double min = data[0];
+    double max = data[0];
+
+    for(int i = 1; i < data.length(); i++) {
+        if(data[i] > max) {
+            max = data[i];
+        }
+        if(data[i] < min) {
+            min = data[i];
+        }
+    }
+    min *= -gain;
+    max *= -gain;
+
+    QPen(Qt::red);
+
+    for (int y = 0; y >= max; y -= gradY*gain) {
+        scene->addLine(0, y, 500, y, QPen(Qt::black));
+    }
+    for (int y = min; y >= 0; y -= gradY*gain) {
+        scene->addLine(0, y, 500, y, QPen(Qt::black));
+    }
 
     QPainterPath curve;
     curve.moveTo(0,-gain*data[0]);

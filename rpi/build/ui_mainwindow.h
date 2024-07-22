@@ -21,6 +21,7 @@
 #include <QtWidgets/QSlider>
 #include <QtWidgets/QTextBrowser>
 #include <QtWidgets/QWidget>
+#include "qchartview.h"
 
 QT_BEGIN_NAMESPACE
 
@@ -36,7 +37,7 @@ public:
     QLabel *label_3;
     QTextBrowser *textBrowser;
     QPushButton *PIDtune_btn;
-    QGraphicsView *Pot_view;
+    QChartView *Pot_view;
     QComboBox *Position_selector;
     QLabel *ArduinoUpdFrq_label;
     QPushButton *Stop_btn;
@@ -54,6 +55,8 @@ public:
     QLabel *P_label;
     QLabel *I_label;
     QLabel *D_label;
+    QLabel *label_2;
+    QLabel *Position_label;
 
     void setupUi(QMainWindow *MainWindow)
     {
@@ -107,7 +110,7 @@ public:
 
         gridLayout->addWidget(PIDtune_btn, 2, 3, 1, 1);
 
-        Pot_view = new QGraphicsView(centralWidget);
+        Pot_view = new QChartView(centralWidget);
         Pot_view->setObjectName(QString::fromUtf8("Pot_view"));
 
         gridLayout->addWidget(Pot_view, 11, 0, 1, 2);
@@ -222,6 +225,16 @@ public:
 
         gridLayout->addWidget(D_label, 3, 2, 1, 1);
 
+        label_2 = new QLabel(centralWidget);
+        label_2->setObjectName(QString::fromUtf8("label_2"));
+
+        gridLayout->addWidget(label_2, 6, 3, 1, 1);
+
+        Position_label = new QLabel(centralWidget);
+        Position_label->setObjectName(QString::fromUtf8("Position_label"));
+
+        gridLayout->addWidget(Position_label, 6, 4, 1, 1);
+
         MainWindow->setCentralWidget(centralWidget);
 
         retranslateUi(MainWindow);
@@ -263,6 +276,8 @@ public:
         P_label->setText(QCoreApplication::translate("MainWindow", "TextLabel", nullptr));
         I_label->setText(QCoreApplication::translate("MainWindow", "TextLabel", nullptr));
         D_label->setText(QCoreApplication::translate("MainWindow", "TextLabel", nullptr));
+        label_2->setText(QCoreApplication::translate("MainWindow", "Position", nullptr));
+        Position_label->setText(QCoreApplication::translate("MainWindow", "TextLabel", nullptr));
     } // retranslateUi
 
 };

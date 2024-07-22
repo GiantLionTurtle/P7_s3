@@ -73,7 +73,7 @@
      </widget>
     </item>
     <item row="11" column="0" colspan="2">
-     <widget class="QGraphicsView" name="Pot_view"/>
+     <widget class="QChartView" name="Pot_view"/>
     </item>
     <item row="5" column="0">
      <widget class="QComboBox" name="Position_selector">
@@ -264,10 +264,31 @@
       </property>
      </widget>
     </item>
+    <item row="6" column="3">
+     <widget class="QLabel" name="label_2">
+      <property name="text">
+       <string>Position</string>
+      </property>
+     </widget>
+    </item>
+    <item row="6" column="4">
+     <widget class="QLabel" name="Position_label">
+      <property name="text">
+       <string>TextLabel</string>
+      </property>
+     </widget>
+    </item>
    </layout>
   </widget>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
+ <customwidgets>
+  <customwidget>
+   <class>QChartView</class>
+   <extends>QGraphicsView</extends>
+   <header>qchartview.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>
