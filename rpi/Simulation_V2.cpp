@@ -8,10 +8,10 @@ Simulation_V2::Simulation_V2(double height)
 
 std::vector<double> Simulation_V2::RunSimulation(double init, double duration, int nbPoints, double initQwDt, double initXDt)
 {
+    Sequence.clear();
     //std::cout <<"1: " << Tw << "\n";
 
     //Init var
-    index = 0;
     qc = 0;
     qe = 0;
     x = 0;
@@ -23,6 +23,7 @@ std::vector<double> Simulation_V2::RunSimulation(double init, double duration, i
 
     /* Initialize COEF pointers to beginning of each row */
     { int iloop;  for( iloop = 0;  iloop < 14;  iloop++ )  COEF[iloop] = &(_COEF[iloop][0]); }
+    CalculateConstants();
 
     /* Numerically integrate. */
     SetArrayFromVariables( varArrayToIntegrate );
@@ -48,7 +49,7 @@ void Simulation_V2::OutputFormattedNumbers(FILE *Fptr, double *Output, ...)
     { int numBlankSpaces;  while( (numBlankSpaces = va_arg(varArgList, int)) != 0 ) fprintf(Fptr, "%*s%- 14.6E", numBlankSpaces, " ", *Output++); }
     va_end( varArgList );
     fprintf( Fptr, "\n" );
-    //std::cout <<"36: " << Tw << "\n";
+    ////std::cout <<"36: " << Tw << "\n";
 }
 
 char* Simulation_V2::OpenOutputFilesWriteHeaders(int isPrintToScreen, int isPrintToFile)
@@ -348,13 +349,13 @@ void  Simulation_V2::SetDerivativeArray( double VARp[] )
 void  Simulation_V2::SetVariablesFromArray( double VAR[] )
 {
     //std::cout <<"15: " << Tw << "\n";
-   qc = VAR[0];
-   qe = VAR[1];
-   x = VAR[2];
-   qcDt = VAR[3];
-   qeDt = VAR[4];
-   xDt = VAR[5];
-   //std::cout <<"16: " << Tw << "\n";
+    qc = VAR[0];
+    qe = VAR[1];
+    x = VAR[2];
+    qcDt = VAR[3];
+    qeDt = VAR[4];
+    xDt = VAR[5];
+    //std::cout <<"16: " << Tw << "\n";
 }
 
 char*  Simulation_V2::MGeqns( double t, double VAR[], double VARp[], char isIntegratorBoundary )
@@ -388,7 +389,7 @@ void Simulation_V2::CalculateOutput(double t, double Output[])
 {
     //std::cout <<"33: " << Tw << "\n";
     Output[0] = t;
-    Output[1] = xDDt;
+    Output[1] = qeDt;
     Sequence.push_back(Output[1]);
 }
 
@@ -535,7 +536,7 @@ char* Simulation_V2::MGIntegrateForwardOrBackward(int numVariables, double varAr
 
     /* Initialize integrator with call at t = tInitial, thereafter integrate */
     int isIntegrationFinished = 0;
-    while( !isIntegrationFinished  &&  !errorMessage )
+    while( !isIntegrationFinished  /*&&  !errorMessage*/ )
     {
         /* Near the end of numerical integration, perhaps take a partial step (decrease tStepMax). */
         if( (isIntegrateForward && t+tStepMax > tFinal)  ||  (!isIntegrateForward && t+tStepMax < tFinal) )
