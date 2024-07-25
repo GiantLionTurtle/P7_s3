@@ -5,11 +5,11 @@
 #include <Arduino.h>
 
 struct TicksWrapper {
-  double conversion_ratio { 1.0 };
-  double offset;
+  long double conversion_ratio { 1.0 };
+  long double offset;
 
-  int curr { 0 }, last { 0 };
-  int last_speed { 0 };
+  long long curr { 0 }, last { 0 };
+  long long last_speed { 0 };
 
   TicksWrapper() = default;
   TicksWrapper(double conv_ratio, double offset_ = 0.0) 
@@ -19,16 +19,16 @@ struct TicksWrapper {
 
   }
 
-  void update(int ticks)
+  void update(long long ticks)
   {
     last_speed = dticks();
     last = curr; 
     curr = ticks;
   }
 
-  int ticks() const { return curr; }
-  int dticks() const { return curr-last; }
-  int ddticks() const { return dticks() - last_speed; }
+  long long ticks() const { return curr; }
+  long long dticks() const { return curr-last; }
+  long long ddticks() const { return dticks() - last_speed; }
 
   double position() const { return static_cast<double>(ticks()) * conversion_ratio + offset; }
   double speed() const { return static_cast<double>(dticks())   * conversion_ratio; }

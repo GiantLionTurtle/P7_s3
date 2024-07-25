@@ -12,6 +12,11 @@
 #include <QGraphicsScene>
 #include <QGraphicsView>
 #include <QGraphicsItem>
+#include <QtWidgets>
+
+#include <QtCharts/QChartView>
+#include <QtCharts/QLineSeries>
+#include <QtCharts>
 
 namespace Ui {
 class MainWindow;
@@ -22,54 +27,77 @@ class MainWindow : public QMainWindow {
     
 private:
   Simulation_V2 simulation;
-  unsigned long int last_simulation_time { 0 }; // ms, the instant into the
-                                                // simulation last time we checked
   unsigned long int last_arduino_time { 0 };    // ms, the instant into the arduino code
                                                 // last time we checked
   ArduinoModel arduino_model;
 
+  bool pid_tune_mode { false };
+  size_t tune_start { 0 };
+
 public:
-    int TIMEOUT_MS = 100; // ms
-    int DEFAULT_UPDATE_RATE = 100; // ms
+  int TIMEOUT_MS = 100; // ms
 
-    explicit MainWindow(QString portName, int updateRate, QWidget *parent = 0);
-    virtual ~MainWindow();
-    void closeEvent(QCloseEvent *event) override;
+  explicit MainWindow(QString portName, int updateRate, QWidget *parent = 0);
+  virtual ~MainWindow();
+  void closeEvent(QCloseEvent *event) override;
 
-    /* --- FUNCTIONS FOR DERIVED CLASS (TO OVERRIDE OR CALL) --- */
+  /* --- FUNCTIONS FOR DERIVED CLASS (TO OVERRIDE OR CALL) --- */
 
-    // can be used in derived class
-    void sendMessage(QString msg);
-    void setUpdateRate(int rateMs);
+  // can be used in derived class
+  void sendMessage(QString msg);
+  void setUpdateRate(int rateMs);
 
-    void onPeriodicUpdate();
+  void onPeriodicUpdate();
+
+  void graphPosition(QJsonObject JsonObj);
 
 private slots:
-    void receiveFromSerial(QString);
+  void receiveFromSerial(QString);
 
-    void sendCommand(std::vector<double> accels);
-    void sendState(State state);
+  void sendCommand(std::vector<double> accels);
+  void sendState(int state);
+  void sendState(State state) { sendState(static_cast<int>(state)); }
+  void set_P(int slider);
+  void set_I(int slider);
+  void set_D(int slider);
+  void toggle_PIDTune();
+  void eStop();
 
 private:
-    void connectTimers(int updateRate);
-    void connectSerialPortRead();
-    void connectPlotBoxe();
-    void connectComboBox();
-    void connectSliders();
-    void setPID();
+  void connectTimers(int updateRate);
+  void connectSerialPortRead();
+  void connectPlotBoxe();
+  void connectComboBox();
+  void connectSliders();
+  void connectButtons();
 
-    QTimer updateTimer_;
-    QString msgReceived_{""};
-    QString msgBuffer{""};
-    bool is_readingArduino_ {false }; // Reading flag to avoid callback loops
-    SerialProtocol* serialCom;
+  double pidTune_fn(unsigned int time) const;
 
+  QTimer updateTimer_;
+  QString msgReceived_{""};
+  QString msgBuffer{""};
+  bool is_readingArduino_ {false }; // Reading flag to avoid callback loops
+  SerialProtocol* serialCom;
 
-    QGraphicsScene scene;
-    Plot currentPot;
+  QLineSeries seriesPot_;
+  QChart chartPot_;
+
+  QGraphicsScene scene;
+  QGraphicsScene scenePosition;
+  //Plot currentPot;
+  Plot currentPos;
+  Plot currentSpeed;
+  Plot currentAccel;
+  Plot pidTarget;
+  size_t lastUpdMillis { 0 };
+
+  double dist_tot { 0 };
+  double last_dist { startPos };
+  double energy { 0 };
+  bool notInitated { true };
 
 protected:
-    Ui::MainWindow *ui;
+  Ui::MainWindow *ui;
 };
 
 #endif // MAINWINDOW_H

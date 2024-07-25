@@ -1,5 +1,7 @@
 #include "Simulation_V2.hpp"
 
+#include <iomanip>
+
 Simulation_V2::Simulation_V2(double height)
 {
     h = height;
@@ -18,9 +20,10 @@ std::vector<double> Simulation_V2::RunSimulation(double init, double duration, i
     qcDt = initQwDt;
     qeDt = initQwDt;
     xDt = initXDt;
-    double tInitial{init}, tFinal{init+duration}, tStep{duration/nbPoints}, absError{1.0E-05}, relError{1.0E-08}, printIntScreenDbl{1}, printIntFileDbl{0};
-    char* errorMessage;
+    double tInitial{init}, tFinal{init+duration}, tStep{duration/static_cast<double>(nbPoints)}, absError{1.0E-05}, relError{1.0E-08}, printIntScreenDbl{1}, printIntFileDbl{0};
+    bool errorMessage;
 
+    std::cout<<"tstep="<<tStep<<"\n";
     /* Initialize COEF pointers to beginning of each row */
     { int iloop;  for( iloop = 0;  iloop < 14;  iloop++ )  COEF[iloop] = &(_COEF[iloop][0]); }
     CalculateConstants();
@@ -358,10 +361,10 @@ void  Simulation_V2::SetVariablesFromArray( double VAR[] )
     //std::cout <<"16: " << Tw << "\n";
 }
 
-char*  Simulation_V2::MGeqns( double t, double VAR[], double VARp[], char isIntegratorBoundary )
+bool Simulation_V2::MGeqns( double t, double VAR[], double VARp[], char isIntegratorBoundary )
 {
     //std::cout <<"13: " << Tw << "\n";
-    char* errorMessage = NULL;
+    bool errorMessage = true;
     double SolutionToAxEqualsB[14];
 
     /* Keep track of number of calls to this function */
@@ -376,7 +379,7 @@ char*  Simulation_V2::MGeqns( double t, double VAR[], double VARp[], char isInte
     /* Calculate the coefficient and rhs matrices and solve linear algebraic equations. */
     CalculateCoefficientMatrix( COEF, t, isIntegratorBoundary );
     CalculateRhsMatrix( RHS, t, isIntegratorBoundary );
-    if( (errorMessage = MGSolveLinearEquation( 14, COEF, RHS, SolutionToAxEqualsB )) != NULL ) return errorMessage;
+    if( (errorMessage = MGSolveLinearEquation( 14, COEF, RHS, SolutionToAxEqualsB )) != true ) return errorMessage;
     UpdateQuantitiesSolvedViaCoupledAlgebraicEquations( SolutionToAxEqualsB );
 
     /* Update derivative array prior to integration step */
@@ -393,7 +396,7 @@ void Simulation_V2::CalculateOutput(double t, double Output[])
     Sequence.push_back(Output[1]);
 }
 
-char* Simulation_V2::MGIntegrator(int numY, double y[], double tStart, double *hEntry, double *hNext, double smallestAllowableStepsize, double absError, double relError)
+bool Simulation_V2::MGIntegrator(int numY, double y[], double tStart, double *hEntry, double *hNext, double smallestAllowableStepsize, double absError, double relError)
 {
     //std::cout <<"11: " << Tw << "\n";
     double f0[myNumberOfODES], f1[myNumberOfODES], f2[myNumberOfODES];
@@ -403,7 +406,7 @@ char* Simulation_V2::MGIntegrator(int numY, double y[], double tStart, double *h
     /* Always calculate derivatives at tStart (integration boundary here).   */
     /* If h == 0, just call eqns at tStart and return.                       */
     //std::cout << "PREMIER CALL\n";
-    char* errorMessage = MGeqns( tStart, y, f0, 1 );
+    bool errorMessage = MGeqns( tStart, y, f0, 1 );
 
     if( !errorMessage  &&  h == 0 )  return NULL;
 
@@ -418,16 +421,16 @@ char* Simulation_V2::MGIntegrator(int numY, double y[], double tStart, double *h
         double h8 = h * 0.125;                               /* Eighth  of h  */
         for( i=0;  i<numY;  i++ )  y1[i] = y[i] + h3*f0[i];
         //std::cout << "DEUXIEME CALL\n";
-        if( (errorMessage = MGeqns( tStart+h3, y1, f1, 0 )) != NULL ) break;
+        if( (errorMessage = MGeqns( tStart+h3, y1, f1, 0 )) != false ) break;
         for( i=0;  i<numY;  i++ )  y1[i] = y[i] + h6*(f0[i] + f1[i]);
         //std::cout << "TROISIEME CALL\n";
-        if( (errorMessage = MGeqns( tStart+h3, y1, f1, 0 )) != NULL ) break;
+        if( (errorMessage = MGeqns( tStart+h3, y1, f1, 0 )) != false ) break;
         for( i=0;  i<numY;  i++ )  y1[i] = y[i] + h8*(f0[i] + 3*f1[i]);
         //std::cout << "QUATRIEME CALL\n";
-        if( (errorMessage = MGeqns( tStart+h2, y1, f2, 0 )) != NULL ) break;
+        if( (errorMessage = MGeqns( tStart+h2, y1, f2, 0 )) != false ) break;
         for( i=0;  i<numY;  i++ )  y1[i] = y[i] + h2*(f0[i] - 3*f1[i] + 4*f2[i]);
         //std::cout << "CINQUIEME CALL\n";
-        if( (errorMessage = MGeqns( tStart+h,  y1, f1, 0 )) != NULL)  break;
+        if( (errorMessage = MGeqns( tStart+h,  y1, f1, 0 )) != false)  break;
         for( i=0;  i<numY;  i++ )  y2[i] = y[i] + h6*(f0[i] + 4*f2[i] + f1[i]);
         //std::cout <<"124: " << Tw << "\n";
 
@@ -450,7 +453,7 @@ char* Simulation_V2::MGIntegrator(int numY, double y[], double tStart, double *h
         {
             for( i = 0;  i < numY;  i++ )  y[i] = y2[i];
             *hEntry = h;   *hNext = (errorRatioMax < 1.0/64.0) ? 2*h : h;
-            return NULL;
+            return false;
         }
 
         /* Otherwise, errorRatioMax >= 1, so absError or relTest failed.      */
@@ -459,16 +462,17 @@ char* Simulation_V2::MGIntegrator(int numY, double y[], double tStart, double *h
         if( fabs(h=h2) <= fabs(smallestAllowableStepsize) )
         {
             static char stepsizeCutMessage[128];
-            sprintf(errorMessage = stepsizeCutMessage,
-                    "Error: Numerical integration stepsize cut too many times at t = %17.9E (variable %d).",
-                    tStart, indexFailedVariable);
+            std::cerr<<"Error: Numerical integration stepsize cut too many times at t = "<<tStart<<" (variable "<<indexFailedVariable<<std::endl;
+            errorMessage = true;
         }
     }
 
     /* Check if loop terminated due to numerical round-off.                  */
-    if( !errorMessage )
-        errorMessage = "Error: Numerical round off makes stepsize h too small relative to tStart, so tStart+h = tStart."
-                    "\nIntegration stepsize may have been cut too many times.";
+    if( !errorMessage ) {
+        std::cerr<<"Error: Numerical round off makes stepsize h too small relative to tStart, so tStart+h = tStart."
+                    "\nIntegration stepsize may have been cut too many times."<<std::endl;
+        errorMessage = true;       
+    }
 
     /* Print error message that numerical integrator failed.    */
     /* If h != 0, call eqns to fill for error display.          */
@@ -479,7 +483,7 @@ char* Simulation_V2::MGIntegrator(int numY, double y[], double tStart, double *h
     return errorMessage;
 }
 
-char *Simulation_V2::MGIntegrateOneStep(int numY, double y[], double *t, double tStepMax, double *stepsizeSuggested, double smallestAllowableStepsize, double absError, double relError)
+bool Simulation_V2::MGIntegrateOneStep(int numY, double y[], double *t, double tStepMax, double *stepsizeSuggested, double smallestAllowableStepsize, double absError, double relError)
 {
     //std::cout <<"9: " << Tw << "\n";
      double hAccumulated = 0;                      /* How far to tStepMax.    */
@@ -493,7 +497,7 @@ char *Simulation_V2::MGIntegrateOneStep(int numY, double y[], double *t, double 
         /* Numerically integrate y[i] and maybe get a smaller value of h.     */
         /* Set hNext to integrator's estimate of next integration step-size.  */
         double hBeforeCall = h, hNext;             /* Suggested stepsize.     */
-        char* errorMessage = MGIntegrator(numY, y, *t, &h, &hNext, smallestAllowableStepsize, absError, relError );
+        bool errorMessage = MGIntegrator(numY, y, *t, &h, &hNext, smallestAllowableStepsize, absError, relError );
         if( errorMessage ) return errorMessage;    /* Integration failed      */
 
         /* Any time or function discontinuities should be handled here.       */
@@ -522,7 +526,7 @@ char *Simulation_V2::MGIntegrateOneStep(int numY, double y[], double *t, double 
     return MGIntegrator(numY, y, *t, NULL, NULL, 0, 0, 0 );
 }
 
-char* Simulation_V2::MGIntegrateForwardOrBackward(int numVariables, double varArrayToIntegrate[], double OutputToFill[], double tInitial, double tFinal, double tStepMax, double absError, double relError, int printIntScreen, int printIntFile)
+bool Simulation_V2::MGIntegrateForwardOrBackward(int numVariables, double varArrayToIntegrate[], double OutputToFill[], double tInitial, double tFinal, double tStepMax, double absError, double relError, int printIntScreen, int printIntFile)
 {
     //std::cout <<"7: " << Tw << "\n";
     double stepsizeSuggested = tStepMax,   smallestAllowableStepsize = 1.0E-7 * tStepMax;
@@ -531,13 +535,15 @@ char* Simulation_V2::MGIntegrateForwardOrBackward(int numVariables, double varAr
     int    isPrintToScreen,  isPrintToFile,  printCounterScreen = 0,   printCounterFile = 0;
 
     /* Ensure valid parameters and sign(tStepMax) moves integration in proper direction. */
-    char* errorMessage = (numVariables <= 0  ||  !varArrayToIntegrate  ||  absError <= 0  || relError < 0  ||  integrateDirection * tStepMax < 0) ?
-                            (char*)"Error: Invalid argument to MGIntegrateForwardOrBackward" : NULL;
-
+    if(numVariables <= 0  ||  !varArrayToIntegrate  ||  absError <= 0  || relError < 0  ||  integrateDirection * tStepMax < 0) {
+        std::cerr<<"Error: Invalid argument to MGIntegrateForwardOrBackward"<<std::endl;
+    }
+    bool errorMessage = false;
     /* Initialize integrator with call at t = tInitial, thereafter integrate */
     int isIntegrationFinished = 0;
     while( !isIntegrationFinished  /*&&  !errorMessage*/ )
     {
+        std::cout<<"t="<<std::setprecision(8)<<t<<"\n";
         /* Near the end of numerical integration, perhaps take a partial step (decrease tStepMax). */
         if( (isIntegrateForward && t+tStepMax > tFinal)  ||  (!isIntegrateForward && t+tStepMax < tFinal) )
         {
@@ -559,7 +565,7 @@ char* Simulation_V2::MGIntegrateForwardOrBackward(int numVariables, double varAr
         }
         isFirstCall = 0;
     }
-    //std::cout <<"8: " << Tw << "\n";
+    std::cout <<"8: " << Tw << "\n";
     return errorMessage;
 }
 
@@ -572,16 +578,17 @@ void Simulation_V2::CalculateConstants(void)
     //std::cout <<"4: " << Tw << "\n";
 }
 
-char* Simulation_V2::MGSolveLinearEquation( int numberOfEqns, double* A[], double B[], double X[] )
+bool Simulation_V2::MGSolveLinearEquation( int numberOfEqns, double* A[], double B[], double X[] )
 {
     //std::cout <<"23: " << Tw << "\n";
-    static char errorMessage[96];
     double      rowScaleFactor[ myNumberOfCoupledLinearEqns ];
     int         i, j, k;
 
     /* Ensure there is sufficient space for row-scaling factors */
-    if( numberOfEqns > myNumberOfCoupledLinearEqns ) return "Error in MGSolveLinearEquation: numberOfEqns > myNumberOfCoupledLinearEqnsIncrease.";
-
+    if( numberOfEqns > myNumberOfCoupledLinearEqns ) {
+        std::cerr<<"Error in MGSolveLinearEquation: numberOfEqns > myNumberOfCoupledLinearEqnsIncrease."<<std::endl;
+        return true;
+    }
     /* Begin decomposition */
     for( i = 0;  i < numberOfEqns;  i++ )
     {
@@ -592,7 +599,10 @@ char* Simulation_V2::MGSolveLinearEquation( int numberOfEqns, double* A[], doubl
             if( rowMax < fabs(Ai[j]) )  rowMax = fabs(Ai[j]);
 
         /* Issue error if row of zeros are found */
-        if( rowMax == 0.0 ) { sprintf( errorMessage, "Error in MGSolveLinearEquation: All elements in row %d of coefficient matrix are zero.", i+1 );  return errorMessage; }
+        if( rowMax == 0.0 ) { 
+            std::cerr<<"Error in MGSolveLinearEquation: All elements in row "<<i+1<<" of coefficient matrix are zero."<<std::endl;  
+            return true; 
+        }
 
         /* Keep track of row scaling factor */
         rowScaleFactor[i] = 1.0 / rowMax;
@@ -613,7 +623,10 @@ char* Simulation_V2::MGSolveLinearEquation( int numberOfEqns, double* A[], doubl
         }
 
         /* Issue warning if zero pivot is encountered */
-        if( largestPivot == 0.0 )  { sprintf( errorMessage, "Error in MGSolveLinearEquation: Zero pivot in column %d during LU-decomposition of COEF matrix.", k+1 );  return errorMessage; }
+        if( largestPivot == 0.0 )  { 
+            std::cerr<<"Error in MGSolveLinearEquation: Zero pivot in column "<<k+1<<" during LU-decomposition of COEF matrix."<<std::endl;  
+            return true; 
+        }
 
         /* Maybe switch rows of A and x by changing row pointers and x values */
         if( swapi != k )

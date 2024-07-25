@@ -11,25 +11,49 @@
 
 #include <iostream>
 
+// How to scale slider values (int) to 
+// actual PID gain
+#define P_SLIDER_CONV 10.0f
+#define I_SLIDER_CONV 10.0f
+#define D_SLIDER_CONV 10.0f
+
 MainWindow::MainWindow(QString portName, int updateRate, QWidget *parent)
   : QMainWindow(parent)
   , simulation(1.0)
+  , currentPos(0.1, 0.1)
+ // , currentPot(0, 0.2618)
+  , currentSpeed(0.01, 0.01)
+  , currentAccel(0.001, 0.001)
+  , pidTarget(0.001, 0.001)
 {
   // Initialisation du UI
   ui = new Ui::MainWindow;
   ui->setupUi(this);
 
+  // Initialisation du graphique
+    // Étape 2.2: Associer chart_ au QChartView dans l'interface
+    ui->Pot_view->setChart(&chartPot_);
 
-    // Fonctions de connections events/slots
+    // Étape 2.3: Donner un titre au graphique
+   chartPot_.setTitle("Angle Potentiometre");
+
+    // Étape 2.4: Cacher la légende
+   chartPot_.legend()->hide();
+
+    // Étape 2.5: Associer series_ à chart_
+   chartPot_.addSeries(&seriesPot_);
+
+
+  // Fonctions de connections events/slots
   connectTimers(updateRate);
   connectPlotBoxe();  // activation du plot, mettre en commentaire si pas utilise
   connectComboBox();
   connectSliders();
+  connectButtons();
+
   // Serial protocole
   serialCom = new SerialProtocol(portName, BAUD_RATE);
   connectSerialPortRead();
-
-
 }
 
 MainWindow::~MainWindow()
@@ -41,7 +65,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-  sendMessage("{\"read\": \"false\"}"); //Arret de communication periodique de l'arduino
+  // sendMessage("{\"read\": \"false\"}"); //Arret de communication periodique de l'arduino
   event->accept();
 }
 
@@ -49,46 +73,121 @@ void MainWindow::receiveFromSerial(QString msg) {
   // Fonction appelee lors de reception sur port serie
   // Accumulation des morceaux de message
   msgBuffer += msg;
-
+  
   if(msgBuffer.endsWith('\n')) {
     is_readingArduino_ = true;
+    // std::cout<<"received stuff: "<<msgBuffer.toStdString()<<"\n";
+
     QJsonDocument jsonResponse = QJsonDocument::fromJson(msgBuffer.toUtf8());
+    // std::cout<<"received stuff: "<<msgBuffer.toStdString()<<"\n";
     if(~jsonResponse.isEmpty()) {
       QJsonObject jsonObj = jsonResponse.object();
 
       QString buff = jsonResponse.toJson(QJsonDocument::Indented);
       ui->textBrowser->setText(buff.mid(2,buff.length()-4));
 
-      if(!jsonObj["state"].isNull()) {
-        int stateint = jsonObj["state"].toInt();
-        arduino_model.state = static_cast<State>(stateint);
+      if(!jsonObj[JSON_STATE].isNull()) {
+        int stateint = jsonObj[JSON_STATE].toInt();
+        arduino_model.set_state(static_cast<State>(stateint));
         ui->statebox->setCurrentIndex(stateint);
       }
-      if(!jsonObj["time"].isNull()) {
-        arduino_model.time_ms = jsonObj["time"].toInt();
-      }
-      if(!jsonObj["dlin"].isNull()) {
-        arduino_model.linSpeed = jsonObj["dlin"].toDouble();
-      }
-      if(!jsonObj["dwheel"].isNull()) {
-        arduino_model.wheelAngSpeed = jsonObj["dwheel"].toDouble();
+      if(!jsonObj[JSON_TIME].isNull()) {
+        arduino_model.time_ms = jsonObj[JSON_TIME].toInt();
       }
 
+      if(!jsonObj[JSON_PID_P].isNull()) {
+        ui->PID_p->setValue(jsonObj[JSON_PID_P].toDouble() * P_SLIDER_CONV);
+      }
+      if(!jsonObj[JSON_PID_I].isNull()) {
+        ui->PID_i->setValue(jsonObj[JSON_PID_I].toDouble() * I_SLIDER_CONV);
+      }
+      if(!jsonObj[JSON_PID_D].isNull()) {
+        ui->PID_d->setValue(jsonObj[JSON_PID_D].toDouble() * D_SLIDER_CONV);
+      }
+
+      // if(!jsonObj["dlin"].isNull()) {
+        // arduino_model.linSpeed = jsonObj["dlin"].toDouble();
+      // }
+      if(!jsonObj[JSON_DWHEEL].isNull()) {
+        arduino_model.set_wheel_angSpeed(jsonObj[JSON_DWHEEL].toDouble());
+      }
+      if(!jsonObj[JSON_WHEEL].isNull()) {
+        arduino_model.wheel_pos = jsonObj[JSON_WHEEL].toDouble();
+      }
+      double current = 0;
+      if(!jsonObj[JSON_CURRENT].isNull()) {
+        current = jsonObj[JSON_CURRENT].toDouble();
+      }
+      double voltage = 0;
+      if(!jsonObj[JSON_VOLTAGE].isNull()) {
+        voltage = jsonObj[JSON_VOLTAGE].toDouble();
+      }
+      dist_tot += std::abs(last_dist - arduino_model.wheel_pos);
+      ui->Dist_label->setText(QString::number(dist_tot) + " m");
+      last_dist = arduino_model.wheel_pos;
+
+      double delta_s = static_cast<double>(arduino_model.time_ms-lastUpdMillis) / 1000.0;
+      double freq = 1.0/delta_s;
+      ui->ArduinoUpdFrq_label->setText(QString::number(freq) + " Hz");
+      lastUpdMillis = arduino_model.time_ms;
+
+      if(delta_s < 1000) {
+       // qDebug()<<energy<<": "<<voltage<<",  "<<current<<",  "<<delta_s<<"\n";
+        energy += voltage*current*delta_s;
+        ui->Energy_label->setText(QString::number(energy) + " J");
+      }
+      ui->Position_label->setText(QString::number(arduino_model.wheel_pos) + " m");
+      
+      if(jsonObj.contains(JSON_DPENDULUM)) {
+        arduino_model.pendulum_dangle = jsonObj[JSON_DPENDULUM].toDouble();
+      }
+      if(jsonObj.contains(JSON_PENDULUM)) {
+          arduino_model.pendulum_angle = jsonObj[JSON_PENDULUM].toDouble();
+
+          seriesPot_.append(arduino_model.time_ms, arduino_model.pendulum_angle);
+
+          // Étape 3. Ajouter les données à series_ et mettre à jour chart_
+          chartPot_.removeSeries(&seriesPot_);
+          chartPot_.addSeries(&seriesPot_);
+          chartPot_.createDefaultAxes();
+      }
       // Plot data
-      scene.clear();
-      currentPot.addData(jsonObj["pendulumPot"].toDouble());
-      currentPot.draw(&scene);
+      // scene.clear();
+      // currentPot.addData(jsonObj[JSON_PENDULUM].toDouble());
+      // currentPot.draw(&scene);
+      // // Ajouter donnee au chart
 
+      graphPosition(jsonObj);
 
-      msgBuffer = "";
+      is_readingArduino_ = false;
+    } else {
+      std::cout<<msgBuffer.toStdString()<<"\n";
     }
-    is_readingArduino_ = false;
+    msgBuffer = "";
   }
 }
 void MainWindow::onPeriodicUpdate()
 {
-  if(arduino_model.state == State::Swinging) {
-    unsigned long int est_simulation_time = last_simulation_time + (last_arduino_time-arduino_model.time_ms);
+  if(notInitated) {
+    // Ask the arduino to send state, pid and pics
+    // sendMessage(QString("{\"") + JSON_SEND + "\":\"\"}");
+    
+    // sendMessage(QString("{\"") + JSON_SEND + "\": \"false\"}");
+    // sendMessage(QString("{\"") + JSON_SEND + "\":" + QString::number(1) + "}");
+    notInitated = false;
+  }
+  if(arduino_model.state != State::Swinging) {
+    return;
+  }
+  if(pid_tune_mode) {
+    size_t start_time = arduino_model.time_ms - tune_start;
+    std::vector<double> samples(N_ACCELS_SAMPLES);
+    for(size_t i = 0; i < samples.size(); ++i) {
+      samples[i] = pidTune_fn(start_time + (COMMAND_DURATION_MS / N_ACCELS_SAMPLES) * i);
+    }
+    sendCommand(samples);
+  } else {
+    unsigned long int est_simulation_time = arduino_model.time_ms - arduino_model.simulation_start;
     double timeHint = static_cast<double>(est_simulation_time) / 1000.0;
 
     bool match_success;
@@ -106,7 +205,15 @@ void MainWindow::onPeriodicUpdate()
     sendCommand(simulation.RunSimulation(simTime, duration_s, N_ACCELS_SAMPLES, arduino_model.wheelAngSpeed, arduino_model.linSpeed));
   }
 }
-
+double MainWindow::pidTune_fn(unsigned int time) const
+{
+  time = time % 10000;
+  if(time > 6000) {
+    return 0.0;
+  }
+  double d_time = static_cast<double>(time) / 1000;
+  return d_time * std::sin(d_time * 10) / 50;
+}
 
 void MainWindow::connectTimers(int updateRate) 
 {
@@ -125,44 +232,73 @@ void MainWindow::connectSerialPortRead()
 
 void MainWindow::connectPlotBoxe() 
 {
-  ui->graphicsView->setScene(&scene);
+  
+  //ui->Pot_view->setScene(&scene);
+  ui->Position_view->setScene(&scenePosition);
   // Plot data
-  currentPot.setDataLen(300);
-  currentPot.setColor(255,0,0);
-  currentPot.setGain(4);
+  // currentPot.setDataLen(300);
+  // currentPot.setColor(255,0,0);
+  // currentPot.setGain(25);
+
+  currentPos.setDataLen(300);
+  currentPos.setColor(255,0,0);
+  currentPos.setGain(40);
+
+  currentSpeed.setDataLen(300);
+  currentSpeed.setColor(0,255,0);
+  currentSpeed.setGain(5000);
+
+  currentAccel.setDataLen(300);
+  currentAccel.setColor(0,0,255);
+  currentAccel.setGain(100000);
+
+  pidTarget.setDataLen(300);
+  pidTarget.setColor(0,120,120);
+  pidTarget.setGain(currentAccel.getGain());
 }
 void MainWindow::connectComboBox()
 {
   connect(ui->statebox, SIGNAL(currentIndexChanged(int)), this, SLOT(sendState(int)));
+  // connect(ui->Position_selector, SIGNAL(currentIndexChanged(int)), &currentPos, SLOT(clear()));
 }
 void MainWindow::connectSliders()
 {
-  connect(ui->PID_p, SIGNAL(valueChanged()), this, SLOT(setPID()));
-  connect(ui->PID_i, SIGNAL(valueChanged()), this, SLOT(setPID()));
-  connect(ui->PID_d, SIGNAL(valueChanged()), this, SLOT(setPID())); 
+  // Send P gain when slider is moved
+  connect(ui->PID_p, SIGNAL(valueChanged(int)), this, SLOT(set_P(int)));
+
+  // Send I gain when slider is moved
+  connect(ui->PID_i, SIGNAL(valueChanged(int)), this, SLOT(set_I(int)));
+  
+  // Send D gain when slider is moved
+  connect(ui->PID_d, SIGNAL(valueChanged(int)), this, SLOT(set_D(int)));
+}
+void MainWindow::connectButtons()
+{
+  connect(ui->PIDtune_btn, SIGNAL(clicked()), this, SLOT(toggle_PIDTune()));
+  connect(ui->Stop_btn, SIGNAL(clicked()), this, SLOT(eStop()));
+}
+
+void MainWindow::sendMessage(QString msg)
+{
+  serialCom->sendMessage(msg+"\n");
+  // qDebug() << msg;
+  std::cout<<msg.toStdString()<<"\n";
 }
 
 void MainWindow::sendCommand(std::vector<double> accels)
 { 
-  QString command_str = "\"command\": {\"startTime\":" + QString::number(arduino_model.time_ms) + ",\"accels\":[";
+  QString startTime_str = QString("\"") + JSON_COMMAND_START + "\":" + QString::number(arduino_model.time_ms);
+  QString accel_str = QString("\"") + JSON_COMMAND_VELOCITIES + "\":[";
   for(size_t i = 0; i < accels.size(); ++i) {
-    command_str += QString::number(accels[i]);
+    accel_str += QString::number(accels[i]);
     if(i < accels.size()-1) {
-      command_str += ",";
+      accel_str += ",";
     } else {
-      command_str += "]";
+      accel_str += "]";
     }
   }
-  command_str += "}";
-
+  QString command_str = "{" + startTime_str + "," + accel_str + "}";
   sendMessage(command_str);
-}
-
-void MainWindow::sendMessage(QString msg) 
-{
-  // Fonction d'ecriture sur le port serie
-  serialCom->sendMessage(msg);
-  qDebug() << msg;
 }
 
 void MainWindow::setUpdateRate(int rateMs) 
@@ -170,16 +306,75 @@ void MainWindow::setUpdateRate(int rateMs)
   // Fonction d'initialisation du Timer
   updateTimer_.start(rateMs);
 }
-void MainWindow::sendState(State state)
+void MainWindow::sendState(int state)
 {
+  std::cout<<"Set state [reading="<<is_readingArduino_<<"]\n";
   if(!is_readingArduino_) {
-    sendMessage("{\"state\": " + QString::number(static_cast<int>(state)) + "}");
+    sendMessage(QString("{\"") + JSON_STATE + "\":" + QString::number(state) + "}");
   }
 }
-void MainWindow::setPID()
+void MainWindow::set_P(int slider)
 {
-  serialCom->sendMessage("{\"PIDGains\":[" + 
-                      QString::number(static_cast<double>(ui->PID_p->value())/10.0) + ", " + 
-                      QString::number(static_cast<double>(ui->PID_i->value())/10.0) + ", " + 
-                      QString::number(static_cast<double>(ui->PID_d->value())/10.0) + "]}");
+  auto val_str = QString::number(static_cast<double>(slider)/P_SLIDER_CONV);
+  ui->P_label->setText(val_str);
+
+  if(is_readingArduino_) 
+    return; // Protect from potential feedback loops
+  sendMessage(QString("{\"") + JSON_PID_P + "\":" + val_str + "}");
+}
+void MainWindow::set_I(int slider)
+{
+  auto val_str = QString::number(static_cast<double>(slider)/I_SLIDER_CONV);
+  ui->I_label->setText(val_str);
+
+  if(is_readingArduino_) 
+    return; // Protect from potential feedback loops
+  sendMessage(QString("{\"") + JSON_PID_I + "\":" + val_str + "}");
+}
+void MainWindow::set_D(int slider)
+{
+  auto val_str = QString::number(static_cast<double>(slider)/D_SLIDER_CONV);
+  ui->D_label->setText(val_str);
+
+  if(is_readingArduino_) 
+    return; // Protect from potential feedback loops
+  sendMessage(QString("{\"") + JSON_PID_D + "\":" + val_str + "}");
+}
+void MainWindow::toggle_PIDTune()
+{
+  pid_tune_mode = !pid_tune_mode;
+  if(pid_tune_mode) {
+    sendState(State::Swinging);
+    tune_start = arduino_model.time_ms;      
+  } else {
+    sendState(State::Ready);
+  }
+  // qDebug()<<"PIDTune: "<<pid_tune_mode<<"\n";
+}
+void MainWindow::eStop()
+{
+  sendState(State::Error);
+}
+void MainWindow::graphPosition(QJsonObject JsonObj)
+{
+  enum Kinds { Position, Speed, Acceleration };
+
+  currentPos.addData(JsonObj[JSON_WHEEL].toDouble());
+  currentSpeed.addData(JsonObj[JSON_DWHEEL].toDouble());
+  currentAccel.addData(JsonObj[JSON_DDWHEEL].toDouble());
+  pidTarget.addData(JsonObj[JSON_GOAL].toDouble());
+  scenePosition.clear();
+
+  switch(ui->Position_selector->currentIndex()) {
+    case Position:
+      currentPos.draw(&scenePosition);
+      break;
+    case Speed:
+      currentSpeed.draw(&scenePosition);
+      pidTarget.draw(&scenePosition);
+      break;
+    case Acceleration:
+      currentAccel.draw(&scenePosition);
+      break;
+  }
 }

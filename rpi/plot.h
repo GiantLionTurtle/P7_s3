@@ -10,18 +10,24 @@ class Plot: public QObject
     Q_OBJECT
 
 public:
-    Plot();
+    Plot(double gradX_, double gradY_);
     void setColor(int,int,int);
     void setDataLen(int);
     void addData(double);
     void draw(QGraphicsScene *);
     void setGain(double);
+    double getGain() const { return gain; }
+
+public slots:
+    void clear();
 
 private:
     double gain = 1;
     int dataBufferLen;
     QVector<double> data;
     QPen pen;
+    double gradX;
+    double gradY;
 
 
 };
