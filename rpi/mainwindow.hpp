@@ -27,8 +27,6 @@ class MainWindow : public QMainWindow {
     
 private:
   Simulation_V2 simulation;
-  unsigned long int last_simulation_time { 0 }; // ms, the instant into the
-                                                // simulation last time we checked
   unsigned long int last_arduino_time { 0 };    // ms, the instant into the arduino code
                                                 // last time we checked
   ArduinoModel arduino_model;

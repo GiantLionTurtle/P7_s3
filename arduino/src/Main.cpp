@@ -25,14 +25,13 @@
 
 const double pendulumLength = 0.4; // m
 const double railHeight = 1.0; // m
-const double wheelRadius = 0.05; // m
 const double ticksPerTurn = 3200;
 
 const double obstaclePos = 0.5;
 
-const double stabilization_coeff = 0.3;
-const double pendulumSpeed_stabilized = 0.05; // rad/s
-const double pendulumPos_stabilized = 0.1;
+const double stabilization_coeff = 0.2;
+const double pendulumSpeed_stabilized = 0.005; // rad/s
+const double pendulumPos_stabilized = 0.05;
 
 const double homePos = 0.0;
 
@@ -107,7 +106,7 @@ void setup()
   pid_.setEpsilon(0.001);
   pid_.setPeriod(10);
 
-  pid_.setMeasurementFunc([]() -> double { return wheelTicks.accel(); }); //acceleration lineaire
+  pid_.setMeasurementFunc([]() -> double { return wheelTicks.speed(); }); //acceleration lineaire
   pid_.setCommandFunc([](double pid_voltage){ AX_.setMotorPWM(MOTOR_PIN, pid_voltage); });
 
   // sendMsg();
@@ -230,7 +229,7 @@ void manageSerial()
     command.startTime_ms = parse_msg.as<unsigned int>();
   }
   
-  parse_msg = doc[JSON_COMMAND_ACCELS];
+  parse_msg = doc[JSON_COMMAND_VELOCITIES];
   if(!parse_msg.isNull()) {
     for(int i = 0; i < N_ACCELS_SAMPLES; ++i) {
       command.Tm[i] = parse_msg[i].as<double>();
@@ -327,7 +326,7 @@ void update_state()
     }
     break;
   case State::Swinging:
-    if(EOTPos.y > (railHeight-pendulumLength+0.01) && pendulumPot.position() > 0.1) {
+    if(/*EOTPos.y > (railHeight-pendulumLength+0.01) &&*/ pendulumPot.position() > 0.5) {
       set_state(State::JustGonnaSendIt);
     }
     break;

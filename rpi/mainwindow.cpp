@@ -88,9 +88,13 @@ void MainWindow::receiveFromSerial(QString msg) {
 
       if(!jsonObj[JSON_STATE].isNull()) {
         int stateint = jsonObj[JSON_STATE].toInt();
-        arduino_model.state = static_cast<State>(stateint);
+        arduino_model.set_state(static_cast<State>(stateint));
         ui->statebox->setCurrentIndex(stateint);
       }
+      if(!jsonObj[JSON_TIME].isNull()) {
+        arduino_model.time_ms = jsonObj[JSON_TIME].toInt();
+      }
+
       if(!jsonObj[JSON_PID_P].isNull()) {
         ui->PID_p->setValue(jsonObj[JSON_PID_P].toDouble() * P_SLIDER_CONV);
       }
@@ -101,14 +105,11 @@ void MainWindow::receiveFromSerial(QString msg) {
         ui->PID_d->setValue(jsonObj[JSON_PID_D].toDouble() * D_SLIDER_CONV);
       }
 
-      if(!jsonObj[JSON_TIME].isNull()) {
-        arduino_model.time_ms = jsonObj[JSON_TIME].toInt();
-      }
       // if(!jsonObj["dlin"].isNull()) {
         // arduino_model.linSpeed = jsonObj["dlin"].toDouble();
       // }
       if(!jsonObj[JSON_DWHEEL].isNull()) {
-        arduino_model.wheelAngSpeed = jsonObj[JSON_DWHEEL].toDouble();
+        arduino_model.set_wheel_angSpeed(jsonObj[JSON_DWHEEL].toDouble());
       }
       if(!jsonObj[JSON_WHEEL].isNull()) {
         arduino_model.wheel_pos = jsonObj[JSON_WHEEL].toDouble();
@@ -136,17 +137,20 @@ void MainWindow::receiveFromSerial(QString msg) {
         ui->Energy_label->setText(QString::number(energy) + " J");
       }
       ui->Position_label->setText(QString::number(arduino_model.wheel_pos) + " m");
-      //test potentiometre
+      
+      if(jsonObj.contains(JSON_DPENDULUM)) {
+        arduino_model.pendulum_dangle = jsonObj[JSON_DPENDULUM].toDouble();
+      }
       if(jsonObj.contains(JSON_PENDULUM)) {
-                double pendulum = jsonObj[JSON_PENDULUM].toDouble();
+          arduino_model.pendulum_angle = jsonObj[JSON_PENDULUM].toDouble();
 
-                seriesPot_.append(arduino_model.time_ms, pendulum);
+          seriesPot_.append(arduino_model.time_ms, arduino_model.pendulum_angle);
 
-                // Étape 3. Ajouter les données à series_ et mettre à jour chart_
-                chartPot_.removeSeries(&seriesPot_);
-                chartPot_.addSeries(&seriesPot_);
-                chartPot_.createDefaultAxes();
-            }
+          // Étape 3. Ajouter les données à series_ et mettre à jour chart_
+          chartPot_.removeSeries(&seriesPot_);
+          chartPot_.addSeries(&seriesPot_);
+          chartPot_.createDefaultAxes();
+      }
       // Plot data
       // scene.clear();
       // currentPot.addData(jsonObj[JSON_PENDULUM].toDouble());
@@ -183,7 +187,7 @@ void MainWindow::onPeriodicUpdate()
     }
     sendCommand(samples);
   } else {
-    unsigned long int est_simulation_time = last_simulation_time + (last_arduino_time-arduino_model.time_ms);
+    unsigned long int est_simulation_time = arduino_model.time_ms - arduino_model.simulation_start;
     double timeHint = static_cast<double>(est_simulation_time) / 1000.0;
 
     bool match_success;
@@ -284,7 +288,7 @@ void MainWindow::sendMessage(QString msg)
 void MainWindow::sendCommand(std::vector<double> accels)
 { 
   QString startTime_str = QString("\"") + JSON_COMMAND_START + "\":" + QString::number(arduino_model.time_ms);
-  QString accel_str = QString("\"") + JSON_COMMAND_ACCELS + "\":[";
+  QString accel_str = QString("\"") + JSON_COMMAND_VELOCITIES + "\":[";
   for(size_t i = 0; i < accels.size(); ++i) {
     accel_str += QString::number(accels[i]);
     if(i < accels.size()-1) {
@@ -304,6 +308,7 @@ void MainWindow::setUpdateRate(int rateMs)
 }
 void MainWindow::sendState(int state)
 {
+  std::cout<<"Set state [reading="<<is_readingArduino_<<"]\n";
   if(!is_readingArduino_) {
     sendMessage(QString("{\"") + JSON_STATE + "\":" + QString::number(state) + "}");
   }

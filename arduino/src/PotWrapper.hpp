@@ -14,7 +14,7 @@ double map(double x, double in_min, double in_max, double out_min, double out_ma
 
 struct PotWrapper {
   double minRange, maxRange;
-  double zero { 0.0 };
+  int zero;
   int curr, last;
 
   PotWrapper() = default;
@@ -34,6 +34,8 @@ struct PotWrapper {
 
   void calibrate(int val)
   {
+    // Serial.print("Calibrate pot");
+    //Serial.println(val);
     zero = map_me_up(val);
   }
 
