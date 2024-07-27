@@ -19,7 +19,7 @@
 
 MainWindow::MainWindow(QString portName, int updateRate, QWidget *parent)
   : QMainWindow(parent)
-  , simulation(1.0)
+  , simulation(0.04)
   , currentPos(0.1, 0.1)
  // , currentPot(0, 0.2618)
   , currentSpeed(0.01, 0.01)
@@ -176,34 +176,34 @@ void MainWindow::onPeriodicUpdate()
     // sendMessage(QString("{\"") + JSON_SEND + "\":" + QString::number(1) + "}");
     notInitated = false;
   }
-  if(arduino_model.state != State::Swinging) {
-    return;
-  }
-  if(pid_tune_mode) {
-    size_t start_time = arduino_model.time_ms - tune_start;
-    std::vector<double> samples(N_ACCELS_SAMPLES);
-    for(size_t i = 0; i < samples.size(); ++i) {
-      samples[i] = pidTune_fn(start_time + (COMMAND_DURATION_MS / N_ACCELS_SAMPLES) * i);
-    }
-    sendCommand(samples);
-  } else {
-    unsigned long int est_simulation_time = arduino_model.time_ms - arduino_model.simulation_start;
-    double timeHint = static_cast<double>(est_simulation_time) / 1000.0;
+  // if(arduino_model.state != State::Swinging) {
+  //   return;
+  // }
+  // if(pid_tune_mode) {
+  //   size_t start_time = arduino_model.time_ms - tune_start;
+  //   std::vector<double> samples(N_ACCELS_SAMPLES);
+  //   for(size_t i = 0; i < samples.size(); ++i) {
+  //     samples[i] = pidTune_fn(start_time + (COMMAND_DURATION_MS / N_ACCELS_SAMPLES) * i);
+  //   }
+  //   sendCommand(samples);
+  // } else {
+  //   unsigned long int est_simulation_time = arduino_model.time_ms - arduino_model.simulation_start;
+  //   double timeHint = static_cast<double>(est_simulation_time) / 1000.0;
 
-    bool match_success;
-    double simTime = simMatch(arduino_model.pendulum_angle, arduino_model.pendulum_dangle,
-                              timeHint, 20.0, match_success);
-    if(!match_success) {
-      qDebug()<<"Simulation match failed T_T "<<arduino_model.pendulum_angle<<",  "<<
-              arduino_model.pendulum_dangle<<",  "<<timeHint<<"\n";
-      sendState(State::Stabilize);
-      return;
-    }
+  //   bool match_success;
+  //   double simTime = simMatch(arduino_model.pendulum_angle, arduino_model.pendulum_dangle,
+  //                             timeHint, 20.0, match_success);
+  //   if(!match_success) {
+  //     qDebug()<<"Simulation match failed T_T "<<arduino_model.pendulum_angle<<",  "<<
+  //             arduino_model.pendulum_dangle<<",  "<<timeHint<<"\n";
+  //     sendState(State::Stabilize);
+  //     return;
+  //   }
 
-    // std::vector<double> accels = simulation.get_accels(simTime, );
-    double duration_s = static_cast<double>(COMMAND_DURATION_MS) / 1000.0;
-    sendCommand(simulation.RunSimulation(simTime, duration_s, N_ACCELS_SAMPLES, arduino_model.wheelAngSpeed, arduino_model.linSpeed));
-  }
+  //   // std::vector<double> accels = simulation.get_accels(simTime, );
+  //   double duration_s = static_cast<double>(COMMAND_DURATION_MS) / 1000.0;
+  //   sendCommand(simulation.RunSimulation(simTime, duration_s, N_ACCELS_SAMPLES, arduino_model.wheelAngSpeed, arduino_model.linSpeed));
+  // }
 }
 double MainWindow::pidTune_fn(unsigned int time) const
 {
@@ -363,6 +363,7 @@ void MainWindow::graphPosition(QJsonObject JsonObj)
   currentSpeed.addData(JsonObj[JSON_DWHEEL].toDouble());
   currentAccel.addData(JsonObj[JSON_DDWHEEL].toDouble());
   pidTarget.addData(JsonObj[JSON_GOAL].toDouble());
+  std::cout<<JsonObj[JSON_GOAL].toDouble()<<" vs "<<JsonObj[JSON_DWHEEL].toDouble()<<"\n";
   scenePosition.clear();
 
   switch(ui->Position_selector->currentIndex()) {
