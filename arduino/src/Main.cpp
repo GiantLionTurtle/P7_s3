@@ -21,6 +21,8 @@
 #define MOTOR_PIN 1
 #define MAGNET_PIN 32
 
+#define BORING_SWING
+
 // Modelisation
 
 const double pendulumLength = 0.4; // m
@@ -30,6 +32,7 @@ const double ticksPerTurn = 3200;
 const double obstaclePos = 0.5;
 
 const double stabilization_coeff = 0.2;
+const double boring_swing_coeff = -0.2;
 const double pendulumSpeed_stabilized = 0.005; // rad/s
 const double pendulumPos_stabilized = 0.05;
 
@@ -76,6 +79,8 @@ void update_eot();
 // damp-out the pendulum motion
 double stabilize();
 
+double boring_swing();
+
 // Updates the state machine given 
 // the current positions of things and stuff
 void update_state();
@@ -121,7 +126,11 @@ void loop()
 
   switch(state) {
   case State::Swinging:
+#ifdef BORING_SWING
+    pid_.setGoal(boring_swing());
+#else
     pid_.setGoal(command.get_accel(millis()));
+#endif
     break;
   case State::ReturnHome:
     AX_.setMotorPWM(MOTOR_PIN, wheelTicks.position() < homePos ? 0.1 : -0.1);
@@ -291,6 +300,10 @@ double stabilize()
 {
   return stabilization_coeff * pendulumPot.position();
   // return 0.8;
+}
+double boring_swing()
+{
+  return boring_swing_coeff * pendulumPot.position();
 }
 void update_eot()
 {
