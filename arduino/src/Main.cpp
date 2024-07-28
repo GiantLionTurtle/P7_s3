@@ -38,6 +38,7 @@ const double boring_swing_coeff = -0.1;
 const double pendulumSpeed_stabilized = 0.005; // rad/s
 const double pendulumPos_stabilized = 0.05;
 
+const double freq_mult = 4.669047;
 
 const double maxTorque = 0.5;
 
@@ -308,7 +309,11 @@ double stabilize()
 }
 double boring_swing()
 {
-  if(stable()) {
+  double swing_time = static_cast<double>(millis() - state_start_ms) / 1000.0;
+  return sin(freq_mult * swing_time) * swing_time / 100.0;
+
+  /*
+    if(stable()) {
     return 0.05;    
   }
   int mult = pendulumPot.speed() < 0 ? -1 : 1;
@@ -317,6 +322,8 @@ double boring_swing()
     add = wheelTicks.position() > (homePos) ? -0.03 : 0.03;
   }
   return boring_swing_coeff * cos(pendulumPot.position()) * mult + add;
+
+  */
 }
 void update_eot()
 {
