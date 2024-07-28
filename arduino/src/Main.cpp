@@ -21,21 +21,24 @@
 #define MOTOR_PIN 1
 #define MAGNET_PIN 32
 
+#define BORING_SWING
+
 // Modelisation
 
 const double pendulumLength = 0.4; // m
 const double railHeight = 1.0; // m
 const double ticksPerTurn = 3200;
 
-const double obstaclePos = 0.5;
+const double obstaclePos = 0.6;
 
 const double stabilization_coeff = 0.2;
+const double boring_swing_coeff = -0.1;
 const double pendulumSpeed_stabilized = 0.005; // rad/s
 const double pendulumPos_stabilized = 0.05;
 
 const double homePos = 0.0;
 
-const double maxTorque = 2;
+const double maxTorque = 0.5;
 
 BoundingBox sendItBox(Position(obstaclePos-0.1, 0.2), Position(obstaclePos+0.2, 0.1));
 BoundingBox dropBox(Position(obstaclePos+0.2, 0.2), Position(obstaclePos+0.5, 0.0));
@@ -75,6 +78,9 @@ void update_eot();
 // Returns the motor pwm value used to
 // damp-out the pendulum motion
 double stabilize();
+bool stable();
+
+double boring_swing();
 
 // Updates the state machine given 
 // the current positions of things and stuff
@@ -101,10 +107,10 @@ void setup()
   pendulumPot.calibrate(analogRead(PENDULUMPOT_PIN));
 
   // Initialisation du PID
-  pid_.setGains(15, 5, 2);
+  pid_.setGains(4, 2, 0.1);
   // Attache des fonctions de retour
-  pid_.setEpsilon(0.001);
-  pid_.setPeriod(10);
+  pid_.setEpsilon(0.0);
+  pid_.setPeriod(UPDATE_RATE_MS);
 
   pid_.setMeasurementFunc([]() -> double { return wheelTicks.speed(); }); //acceleration lineaire
   pid_.setCommandFunc([](double pid_voltage){ AX_.setMotorPWM(MOTOR_PIN, pid_voltage); });
@@ -121,7 +127,11 @@ void loop()
 
   switch(state) {
   case State::Swinging:
+#ifdef BORING_SWING
+    pid_.setGoal(boring_swing());
+#else
     pid_.setGoal(command.get_accel(millis()));
+#endif
     break;
   case State::ReturnHome:
     AX_.setMotorPWM(MOTOR_PIN, wheelTicks.position() < homePos ? 0.1 : -0.1);
@@ -139,6 +149,7 @@ void loop()
     break;
   case State::Drop:
     digitalWrite(MAGNET_PIN, LOW);
+    AX_.setMotorPWM(MOTOR_PIN, 0.0);
     break;
   case State::JustGonnaSendIt:
     pid_.setGoal(maxTorque);
@@ -205,21 +216,15 @@ void manageSerial()
   // Parse msg for PID gains
   parse_msg = doc[JSON_PID_P];
   if(!parse_msg.isNull()) {
-    pid_.disable();
     pid_.setKp(parse_msg.as<double>());
-    pid_.enable();
   }
   parse_msg = doc[JSON_PID_I];
   if(!parse_msg.isNull()) {
-    pid_.disable();
     pid_.setKi(parse_msg.as<double>());
-    pid_.enable();
   }
   parse_msg = doc[JSON_PID_D];
   if(!parse_msg.isNull()) {
-    pid_.disable();
     pid_.setKd(parse_msg.as<double>());
-    pid_.enable();
   }
 
   // Parse msg for command input
@@ -287,10 +292,23 @@ void sendMsg()
   // Envoit
   Serial.println();
 }
+bool stable()
+{
+  return abs(pendulumPot.speed()) < pendulumSpeed_stabilized && abs(pendulumPot.position()) < pendulumPos_stabilized;
+}
 double stabilize()
 {
   return stabilization_coeff * pendulumPot.position();
   // return 0.8;
+}
+double boring_swing()
+{
+  if(stable()) {
+    return -0.05;    
+  }
+  int mult = pendulumPot.speed() < 0 ? -1 : 1;
+  double add = wheelTicks.position() > homePos ? -0.02 : 0.02;
+  return boring_swing_coeff * cos(pendulumPot.position()) * mult + add;
 }
 void update_eot()
 {
@@ -311,8 +329,8 @@ void update_state()
 
   switch(state) {
   case State::Stabilize:
-    if(abs(pendulumPot.speed()) < pendulumSpeed_stabilized && abs(pendulumPot.position()) < pendulumPos_stabilized) {
-      set_state(State::ReturnHome);
+    if(stable()) {
+      set_state(State::Drop);
     }
     break;
   case State::ReturnHome:
@@ -326,19 +344,20 @@ void update_state()
     }
     break;
   case State::Swinging:
-    if(/*EOTPos.y > (railHeight-pendulumLength+0.01) &&*/ pendulumPot.position() > 0.5) {
+    if(/*EOTPos.y > (railHeight-pendulumLength+0.01) &&*/ pendulumPot.position() > 0.8) {
       set_state(State::JustGonnaSendIt);
     }
     break;
   case State::JustGonnaSendIt:
     if(dropBox.contains(EOTPos) || wheelTicks.position() > obstaclePos) {
-      set_state(State::Drop);
+      set_state(State::Stabilize);
     }
     break;
     
   case State::Drop:
+
     if(millis() - state_start_ms > DROP_DELAY) {
-      set_state(State::Stabilize);
+      set_state(State::ReturnHome);
     }
     break;
     
@@ -366,10 +385,11 @@ void set_state(State newState)
   }
   
   switch(newState) {
-  case State::Swinging:
   case State::JustGonnaSendIt:
+  case State::Swinging:
     pid_.enable();
     break;
+  
   case State::TakingTree:
   case State::Stabilize:
   case State::Drop:
