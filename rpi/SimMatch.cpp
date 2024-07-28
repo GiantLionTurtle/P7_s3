@@ -81,10 +81,11 @@ double solve(double hint, double zero_off, double eps1 = LM_EPS1, double eps2 = 
 double solve_triste(double hint, double angle, double period, int n_samples)
 {
   double curr = std::max(0.0, hint - period);
-  double best_match = -1000;
+  double best_match = 1000;
   double out = curr;
   for(size_t i = 0; i < n_samples; ++i) {
     double err = std::abs(sim_func(curr)-angle);
+    std::cout<<"try "<<curr<<" => "<<err<<"("<<sim_func(curr)<<")"<<"\n";
     if(err < best_match) {
       best_match = err;
       out = curr;
@@ -113,7 +114,7 @@ bool match_ok(double match, double angle, double angvel)
 // from the initial time hint
 double simMatch(double angle, double angular_vel, double time_hint, double total_period, bool& success)
 {
-  double match = solve_triste(time_hint, angle, TRY_HINTDELTA, 40);
+  double match = solve_triste(time_hint, angle, TRY_HINTDELTA, 100);
 
   if(match_ok(match, angle, angular_vel)) {
     success = true;
@@ -122,14 +123,14 @@ double simMatch(double angle, double angular_vel, double time_hint, double total
   
   double future_hint = time_hint + TRY_HINTDELTA, past_hint = time_hint - TRY_HINTDELTA;
   while(future_hint < total_period && past_hint >= 0.0) {
-    match = solve_triste(future_hint, angle, TRY_HINTDELTA, 40);
+    match = solve_triste(future_hint, angle, TRY_HINTDELTA, 100);
     if(match_ok(match, angle, angular_vel)) {
       success = true;
       return match;
     }
 
     if(past_hint > 0.0) { 
-      match = solve_triste(past_hint, angle, TRY_HINTDELTA, 40);
+      match = solve_triste(past_hint, angle, TRY_HINTDELTA, 100);
       if(match_ok(match, angle, angular_vel)) {
         success = true;
         return match;

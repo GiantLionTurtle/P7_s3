@@ -2,7 +2,6 @@
 #define MAINWINDOW_HPP_
 
 #include "ArduinoModel.hpp"
-#include "Simulation_V2.hpp"
 
 #include <QMainWindow>
 #include <QTimer>
@@ -26,7 +25,6 @@ class MainWindow : public QMainWindow {
     Q_OBJECT
     
 private:
-  Simulation_V2 simulation;
   unsigned long int last_arduino_time { 0 };    // ms, the instant into the arduino code
                                                 // last time we checked
   ArduinoModel arduino_model;

@@ -56,8 +56,7 @@ SOURCES       = ../main.cpp \
 		../mainwindow.cpp \
 		../serialprotocol.cpp \
 		../plot.cpp \
-		../SimMatch.cpp \
-		../Simulation_V2.cpp moc_mainwindow.cpp \
+		../SimMatch.cpp moc_mainwindow.cpp \
 		moc_serialprotocol.cpp \
 		moc_plot.cpp
 OBJECTS       = main.o \
@@ -65,7 +64,6 @@ OBJECTS       = main.o \
 		serialprotocol.o \
 		plot.o \
 		SimMatch.o \
-		Simulation_V2.o \
 		moc_mainwindow.o \
 		moc_serialprotocol.o \
 		moc_plot.o
@@ -152,12 +150,11 @@ DIST          = /usr/lib/aarch64-linux-gnu/qt5/mkspecs/features/spec_pre.prf \
 		../serialprotocol.h \
 		../plot.h \
 		../SimMatch.hpp \
-		../Simulation_V2.hpp ../main.cpp \
+		../Simulation_V3.hpp ../main.cpp \
 		../mainwindow.cpp \
 		../serialprotocol.cpp \
 		../plot.cpp \
-		../SimMatch.cpp \
-		../Simulation_V2.cpp
+		../SimMatch.cpp
 QMAKE_TARGET  = Template1
 DESTDIR       = 
 TARGET        = Template1
@@ -345,8 +342,8 @@ distdir: FORCE
 	@test -d $(DISTDIR) || mkdir -p $(DISTDIR)
 	$(COPY_FILE) --parents $(DIST) $(DISTDIR)/
 	$(COPY_FILE) --parents /usr/lib/aarch64-linux-gnu/qt5/mkspecs/features/data/dummy.cpp $(DISTDIR)/
-	$(COPY_FILE) --parents ../mainwindow.hpp ../serialprotocol.h ../plot.h ../SimMatch.hpp ../Simulation_V2.hpp $(DISTDIR)/
-	$(COPY_FILE) --parents ../main.cpp ../mainwindow.cpp ../serialprotocol.cpp ../plot.cpp ../SimMatch.cpp ../Simulation_V2.cpp $(DISTDIR)/
+	$(COPY_FILE) --parents ../mainwindow.hpp ../serialprotocol.h ../plot.h ../SimMatch.hpp ../Simulation_V3.hpp $(DISTDIR)/
+	$(COPY_FILE) --parents ../main.cpp ../mainwindow.cpp ../serialprotocol.cpp ../plot.cpp ../SimMatch.cpp $(DISTDIR)/
 	$(COPY_FILE) --parents ../mainwindow.ui $(DISTDIR)/
 
 
@@ -385,7 +382,6 @@ compiler_moc_header_clean:
 moc_mainwindow.cpp: ../mainwindow.hpp \
 		../ArduinoModel.hpp \
 		../../common_rpiarduino/Common.hpp \
-		../Simulation_V2.hpp \
 		../serialprotocol.h \
 		../plot.h \
 		moc_predefs.h \
@@ -410,7 +406,8 @@ compiler_uic_make_all: ui_mainwindow.h
 compiler_uic_clean:
 	-$(DEL_FILE) ui_mainwindow.h
 ui_mainwindow.h: ../mainwindow.ui \
-		/usr/lib/qt5/bin/uic
+		/usr/lib/qt5/bin/uic \
+		/usr/include/aarch64-linux-gnu/qt5/QtCharts/qchartview.h
 	/usr/lib/qt5/bin/uic ../mainwindow.ui -o ui_mainwindow.h
 
 compiler_yacc_decl_make_all:
@@ -426,7 +423,6 @@ compiler_clean: compiler_moc_predefs_clean compiler_moc_header_clean compiler_ui
 main.o: ../main.cpp ../mainwindow.hpp \
 		../ArduinoModel.hpp \
 		../../common_rpiarduino/Common.hpp \
-		../Simulation_V2.hpp \
 		../serialprotocol.h \
 		../plot.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o main.o ../main.cpp
@@ -434,10 +430,10 @@ main.o: ../main.cpp ../mainwindow.hpp \
 mainwindow.o: ../mainwindow.cpp ../mainwindow.hpp \
 		../ArduinoModel.hpp \
 		../../common_rpiarduino/Common.hpp \
-		../Simulation_V2.hpp \
 		../serialprotocol.h \
 		../plot.h \
 		ui_mainwindow.h \
+		../Simulation_V3.hpp \
 		../SimMatch.hpp
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o mainwindow.o ../mainwindow.cpp
 
@@ -449,9 +445,6 @@ plot.o: ../plot.cpp ../plot.h
 
 SimMatch.o: ../SimMatch.cpp ../SimMatch.hpp
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o SimMatch.o ../SimMatch.cpp
-
-Simulation_V2.o: ../Simulation_V2.cpp ../Simulation_V2.hpp
-	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o Simulation_V2.o ../Simulation_V2.cpp
 
 moc_mainwindow.o: moc_mainwindow.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_mainwindow.o moc_mainwindow.cpp

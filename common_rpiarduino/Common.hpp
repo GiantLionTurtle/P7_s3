@@ -11,7 +11,7 @@
 enum class State { Ready, Stabilize, ReturnHome, TakingTree, Swinging, JustGonnaSendIt, Drop, ShortCircuitForward, ShortCircuitBackward, Error };
 
 constexpr double startPos = 0.0;
-constexpr double wheelRadius = 0.05; // m
+constexpr double wheelRadius = 0.051; // m
 
 #define JSON_TIME "t"
 #define JSON_GOAL "g"

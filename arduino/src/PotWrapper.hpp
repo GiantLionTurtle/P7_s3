@@ -6,12 +6,6 @@
 
 // Light wrapper around a potentiometer
 // used for the pendulum angle
-
-double map(double x, double in_min, double in_max, double out_min, double out_max)
-{
-  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
-
 struct PotWrapper {
   double minRange, maxRange;
   int zero;
@@ -43,7 +37,7 @@ struct PotWrapper {
   double position() const { return position(curr); }
   double position(int val) const { return map_me_up(val) - zero; }
   double speed() const { return map_me_up(curr) - map_me_up(last); }
-  double map_me_up(int val) const { return map(static_cast<double>(val), 0.0, 1023.0, minRange, maxRange); }
+  double map_me_up(int val) const { return (static_cast<double>(val)) * (maxRange - minRange) / (1023.0) + minRange; }
 };
 
 #endif

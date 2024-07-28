@@ -21,7 +21,7 @@
 #define MOTOR_PIN 1
 #define MAGNET_PIN 32
 
-#define BORING_SWING
+// #define BORING_SWING
 
 // Modelisation
 
@@ -29,14 +29,15 @@ const double pendulumLength = 0.4; // m
 const double railHeight = 1.0; // m
 const double ticksPerTurn = 3200;
 
-const double obstaclePos = 0.6;
+const double homePos = 0.15;
+const double swingOffsetPos = 0.3;
+const double obstaclePos = 0.6 + homePos;
 
 const double stabilization_coeff = 0.2;
 const double boring_swing_coeff = -0.1;
 const double pendulumSpeed_stabilized = 0.005; // rad/s
 const double pendulumPos_stabilized = 0.05;
 
-const double homePos = 0.0;
 
 const double maxTorque = 0.5;
 
@@ -46,9 +47,11 @@ BoundingBox homeBox(Position(homePos-0.05, 0.2), Position(homePos+0.05, 0.0));
 
 // !Modelisation
 
+const int openAngle = 135;
+const int closeAngle = 0;
+
 ArduinoX AX_;                       // objet arduinoX
 MegaServo servo_;                   // objet servomoteur
-IMU9DOF imu_;                       // objet imu
 PID pid_;                           // objet PID
 
 Position EOTPos;
@@ -120,6 +123,9 @@ void setup()
 
 void loop()
 {
+  pendulumPot.update(analogRead(PENDULUMPOT_PIN));
+  wheelTicks.update(AX_.readEncoder(MOTOR_PIN));
+
   if(millis()-last_send_time_ms < UPDATE_RATE_MS) {
     return;
   }
@@ -165,11 +171,10 @@ void loop()
     break;
   case State::Error:
     AX_.setMotorPWM(MOTOR_PIN, 0.0);
+    AX_.resetEncoder(MOTOR_PIN);
     break;
   }
 
-  pendulumPot.update(analogRead(PENDULUMPOT_PIN));
-  wheelTicks.update(AX_.readEncoder(MOTOR_PIN));
   // Mise a jour du pid
   pid_.run();
   // AX_.setMotorPWM(MOTOR_PIN, 0.5);
@@ -304,10 +309,13 @@ double stabilize()
 double boring_swing()
 {
   if(stable()) {
-    return -0.05;    
+    return 0.05;    
   }
   int mult = pendulumPot.speed() < 0 ? -1 : 1;
-  double add = wheelTicks.position() > homePos ? -0.02 : 0.02;
+  double add = 0.0;
+  if(abs(wheelTicks.position() - homePos) > 0.05) {
+    add = wheelTicks.position() > (homePos) ? -0.03 : 0.03;
+  }
   return boring_swing_coeff * cos(pendulumPot.position()) * mult + add;
 }
 void update_eot()
@@ -340,7 +348,8 @@ void update_state()
     break;
   case State::TakingTree:
     if(millis() - state_start_ms > TAKE_DELAY) {
-      set_state(State::Swinging);
+      // set_state(State::Swinging);
+      set_state(State::Ready);
     }
     break;
   case State::Swinging:

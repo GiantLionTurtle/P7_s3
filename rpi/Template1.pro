@@ -28,15 +28,14 @@ SOURCES += \
         mainwindow.cpp \
     serialprotocol.cpp \
     plot.cpp \
-    SimMatch.cpp \ 
-    Simulation_V2.cpp
+    SimMatch.cpp 
 
 HEADERS += \
         mainwindow.hpp \
     serialprotocol.h \
     plot.h \
     SimMatch.hpp \ 
-    Simulation_V2.hpp
+    Simulation_V3.hpp
 
 FORMS += \
         mainwindow.ui
