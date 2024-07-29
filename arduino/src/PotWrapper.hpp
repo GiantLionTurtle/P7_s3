@@ -9,7 +9,10 @@
 struct PotWrapper {
   double minRange, maxRange;
   int zero;
-  int curr, last;
+  int curr;
+
+  double position_ { 0.0 };
+  double speed_ { 0.0 };
 
   PotWrapper() = default;
   PotWrapper(double min_, double max_)
@@ -21,22 +24,21 @@ struct PotWrapper {
 
   void update(int val)
   {
-    // Serial.println(val-zero);
-    last = curr;
     curr = val;
+
+    speed_    = map_me_up(curr) - position_;
+    position_ = position(curr);
   }
 
   void calibrate(int val)
   {
-    // Serial.print("Calibrate pot");
-    //Serial.println(val);
     zero = map_me_up(val);
   }
 
   int raw() const { return curr; }
-  double position() const { return position(curr); }
+  double position() const { return position_; }
   double position(int val) const { return map_me_up(val) - zero; }
-  double speed() const { return map_me_up(curr) - map_me_up(last); }
+  double speed() const { return speed_; }
   double map_me_up(int val) const { return (static_cast<double>(val)) * (maxRange - minRange) / (1023.0) + minRange; }
 };
 

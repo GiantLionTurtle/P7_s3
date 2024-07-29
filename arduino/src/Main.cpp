@@ -30,8 +30,14 @@ const double axisHeight = 0.97;
 const double ticksPerTurn = 3200;
 const double axisRelPos = 0.095;
 const double targetLift = 0.04; // 2cm
+const double angleForTargetLift = acos((pendulumLength-targetLift) / pendulumLength);
+const double angleWellOverTargetLift = acos((pendulumLength-targetLift*10) / pendulumLength);
 
-const double obstaclePos = 0.8;
+const double homePosOffsetTreshold = 0.05; // Treshold after which we activate a bias on return swings
+const double positionAccuracy = 0.01; // +/- 1 cm
+
+const double obstaclePos = 0.6;
+const double dropPos = 1.2;
 const double homePos = obstaclePos - sqrt(2*targetLift-targetLift*targetLift)- axisRelPos-0.05;
 
 const double stabilization_coeff = 0.1;
@@ -41,7 +47,7 @@ const double pendulumPos_stabilized = 0.05;
 
 const double freq_mult = 4.16;
 
-const double maxTorque = 0.2;
+const double sendItSpeed = 0.2;
 
 // !Modelisation
 
@@ -52,7 +58,7 @@ ArduinoX AX_;                       // objet arduinoX
 MegaServo servo_;                   // objet servomoteur
 PID pid_;                           // objet PID
 
-Position EOTPos;
+double lift; // How high is the end of tool
 
 PotWrapper pendulumPot(-2.35619449, 2.35619449); // -135 to 135 deg
 TicksWrapper wheelTicks((2.0*PI*wheelRadius)/(ticksPerTurn), startPos);
@@ -84,6 +90,7 @@ void update_eot();
 // damp-out the pendulum motion
 double stabilize();
 bool stable();
+bool is_at(double pos);
 
 double boring_swing();
 
@@ -125,16 +132,20 @@ void setup()
 
 void loop()
 {
-  pendulumPot.update(analogRead(PENDULUMPOT_PIN));
-  wheelTicks.update(AX_.readEncoder(MOTOR_PIN));
 
   if(millis()-last_send_time_ms < UPDATE_RATE_MS) {
     return;
   }
+
+  pendulumPot.update(analogRead(PENDULUMPOT_PIN));
+  wheelTicks.update(AX_.readEncoder(MOTOR_PIN));
+  update_eot();
+
   update_state();
 
   switch(state) {
   case State::Swinging:
+  case State::LastSwing:
 #ifdef BORING_SWING
     pid_.setGoal(boring_swing());
 #else
@@ -155,12 +166,14 @@ void loop()
       digitalWrite(MAGNET_PIN, HIGH);
     }
     break;
+  case State::GetToDrop:
+    AX_.setMotorPWM(MOTOR_PIN, wheelTicks.position() < dropPos ? 0.1 : -0.1);
+    break;
   case State::Drop:
     digitalWrite(MAGNET_PIN, LOW);
-    AX_.setMotorPWM(MOTOR_PIN, 0.0);
     break;
   case State::JustGonnaSendIt:
-    pid_.setGoal(maxTorque);
+    pid_.setGoal(sendItSpeed);
     break;
   case State::ShortCircuitBackward:
     AX_.setMotorPWM(MOTOR_PIN, -0.1);
@@ -202,9 +215,6 @@ void serialEvent()
 }
 void manageSerial()
 {
-  // Serial.print("Got: ");
-  // Serial.println(serialReceived);
-
   // Lecture du message Json
   StaticJsonDocument<500> doc;
   JsonVariant parse_msg;
@@ -303,6 +313,10 @@ bool stable()
 {
   return abs(pendulumPot.speed()) < pendulumSpeed_stabilized && abs(pendulumPot.position()) < pendulumPos_stabilized;
 }
+bool is_at(double pos)
+{
+  return abs(wheelTicks.position()-homePos) < positionAccuracy;
+}
 double stabilize()
 {
   return stabilization_coeff * pendulumPot.position();
@@ -318,7 +332,7 @@ double boring_swing()
     oscilSign = sign;
     oscilCount++;
   }
-  if(wheelTicks.position() > homePos+0.05 && sign == -1) {
+  if(wheelTicks.position() > homePos+904 && sign == -1) {
     base -= 0.03;
   }/* else if(wheelTicks.position() < homePos-0.05 && sign == 1) {
     base += 0.03;
@@ -359,40 +373,42 @@ void update_state()
   switch(state) {
   case State::Stabilize:
     if(stable()) {
-      set_state(State::Drop);
+      set_state(State::GetToDrop);
     }
     break;
   case State::ReturnHome:
-    if(abs(wheelTicks.position()-homePos) < 0.01) {
+    if(is_at(homePos)) {
       set_state(State::Ready);
     }
     break;
   case State::TakingTree:
     if(millis() - state_start_ms > TAKE_DELAY) {
-      // set_state(State::Swinging);
-      set_state(State::Ready);
+      set_state(State::Swinging);
+      // set_state(State::Ready);
     }
     break;
   case State::Swinging:
-    if(sendItAtOscil <= oscilCount && pendulumPot.position() > 0.3) {
-      set_state(State::JustGonnaSendIt);
+    if(pendulumPot.position() > angleWellOverTargetLift && sendItAtOscil == -1) {
+      sendItAtOscil = oscilCount+2; // Get back and forward
+      set_state(State::LastSwing);
     }
-    // Serial.print("senditat=");
-    // Serial.println(sendItAtOscil);
-    if(pendulumPot.position() > 1.2 && sendItAtOscil == -1) {
-      sendItAtOscil = oscilCount+2;
-      // Serial.print("Sending it at ");
-      // Serial.println(sendItAtOscil);
+    break;
+  case State::LastSwing:
+    if(oscilCount >= sendItAtOscil && pendulumPot.position() > angleForTargetLift) {
+      set_state(State::JustGonnaSendIt);
     }
     break;
   case State::JustGonnaSendIt:
-    if(/*dropBox.contains(EOTPos) || */wheelTicks.position() > obstaclePos + 0.2) {
+    if(/*dropBox.contains(EOTPos) || */wheelTicks.position() > dropPos) {
       set_state(State::Stabilize);
     }
     break;
-    
+  case State::GetToDrop:
+    if(is_at(dropPos)) {
+      set_state(State::Drop);
+    }
+    break;
   case State::Drop:
-
     if(millis() - state_start_ms > DROP_DELAY) {
       set_state(State::ReturnHome);
     }
@@ -415,8 +431,6 @@ void update_state()
 
 void set_state(State newState)
 {
-  Serial.print("Setstate ");
-  Serial.println(static_cast<int>(newState));
   if(state == State::Error && newState != State::Ready) {
     return;
   }
@@ -426,11 +440,12 @@ void set_state(State newState)
     sendItAtOscil = -1;
     oscilCount = 0;
     oscilSign = 0;
+  case State::LastSwing:
   case State::JustGonnaSendIt:
   case State::Stabilize:
     pid_.enable();
     break;
-  
+  case State::GetToDrop:
   case State::TakingTree:
   case State::Drop:
   case State::ReturnHome:
