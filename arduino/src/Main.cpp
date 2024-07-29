@@ -21,30 +21,27 @@
 #define MOTOR_PIN 1
 #define MAGNET_PIN 32
 
-// #define BORING_SWING
+#define BORING_SWING
 
 // Modelisation
 
-const double pendulumLength = 0.4; // m
-const double railHeight = 1.0; // m
+const double pendulumLength = 0.565; // m
+const double axisHeight = 0.97;
 const double ticksPerTurn = 3200;
+const double axisRelPos = 0.095;
+const double targetLift = 0.04; // 2cm
 
-const double homePos = 0.15;
-const double swingOffsetPos = 0.3;
-const double obstaclePos = 0.6 + homePos;
+const double obstaclePos = 0.8;
+const double homePos = obstaclePos - sqrt(2*targetLift-targetLift*targetLift)- axisRelPos-0.05;
 
-const double stabilization_coeff = 0.2;
+const double stabilization_coeff = 0.1;
 const double boring_swing_coeff = -0.1;
 const double pendulumSpeed_stabilized = 0.005; // rad/s
 const double pendulumPos_stabilized = 0.05;
 
-const double freq_mult = 4.669047;
+const double freq_mult = 4.16;
 
-const double maxTorque = 0.5;
-
-BoundingBox sendItBox(Position(obstaclePos-0.1, 0.2), Position(obstaclePos+0.2, 0.1));
-BoundingBox dropBox(Position(obstaclePos+0.2, 0.2), Position(obstaclePos+0.5, 0.0));
-BoundingBox homeBox(Position(homePos-0.05, 0.2), Position(homePos+0.05, 0.0));
+const double maxTorque = 0.2;
 
 // !Modelisation
 
@@ -62,6 +59,10 @@ TicksWrapper wheelTicks((2.0*PI*wheelRadius)/(ticksPerTurn), startPos);
 
 unsigned long last_send_time_ms = 0;
 unsigned long state_start_ms = 0; // Point in time when the current state was set
+
+int sendItAtOscil = -1;
+int oscilCount = 0;
+int oscilSign = 0;
 
 Command command;
 State state { State::Ready };
@@ -144,7 +145,7 @@ void loop()
     AX_.setMotorPWM(MOTOR_PIN, wheelTicks.position() < homePos ? 0.1 : -0.1);
     break;
   case State::Stabilize:
-    AX_.setMotorPWM(MOTOR_PIN, stabilize());
+    pid_.setGoal(stabilize());
     break;
   case State::TakingTree:
     AX_.setMotorPWM(MOTOR_PIN, 0.0);
@@ -310,8 +311,21 @@ double stabilize()
 double boring_swing()
 {
   double swing_time = static_cast<double>(millis() - state_start_ms) / 1000.0;
-  return sin(freq_mult * swing_time) * swing_time / 100.0;
+  double base = sin(freq_mult * swing_time) * swing_time / 100.0;
 
+  int sign = base < 0.0 ? -1 : 1;
+  if(sign != oscilSign) {
+    oscilSign = sign;
+    oscilCount++;
+  }
+  if(wheelTicks.position() > homePos+0.05 && sign == -1) {
+    base -= 0.03;
+  }/* else if(wheelTicks.position() < homePos-0.05 && sign == 1) {
+    base += 0.03;
+  }*/
+  return base;
+
+  // return (sin(freq_mult*swing_time) + freq_mult*swing_time*cos(freq_mult*swing_time))/50.0;
   /*
     if(stable()) {
     return 0.05;    
@@ -327,8 +341,8 @@ double boring_swing()
 }
 void update_eot()
 {
-  EOTPos.x = wheelTicks.position() + sin(pendulumPot.position()) * pendulumLength;
-  EOTPos.y = railHeight - cos(pendulumPot.position()) * pendulumLength;
+  // EOTPos.x = wheelTicks.position() + sin(pendulumPot.position()) * pendulumLength;
+  // EOTPos.y = railHeight - cos(pendulumPot.position()) * pendulumLength;
 }
 void update_state()
 {
@@ -360,12 +374,19 @@ void update_state()
     }
     break;
   case State::Swinging:
-    if(/*EOTPos.y > (railHeight-pendulumLength+0.01) &&*/ pendulumPot.position() > 0.8) {
+    if(sendItAtOscil <= oscilCount && pendulumPot.position() > 0.3) {
       set_state(State::JustGonnaSendIt);
+    }
+    // Serial.print("senditat=");
+    // Serial.println(sendItAtOscil);
+    if(pendulumPot.position() > 1.2 && sendItAtOscil == -1) {
+      sendItAtOscil = oscilCount+2;
+      // Serial.print("Sending it at ");
+      // Serial.println(sendItAtOscil);
     }
     break;
   case State::JustGonnaSendIt:
-    if(dropBox.contains(EOTPos) || wheelTicks.position() > obstaclePos) {
+    if(/*dropBox.contains(EOTPos) || */wheelTicks.position() > obstaclePos + 0.2) {
       set_state(State::Stabilize);
     }
     break;
@@ -401,13 +422,16 @@ void set_state(State newState)
   }
   
   switch(newState) {
-  case State::JustGonnaSendIt:
   case State::Swinging:
+    sendItAtOscil = -1;
+    oscilCount = 0;
+    oscilSign = 0;
+  case State::JustGonnaSendIt:
+  case State::Stabilize:
     pid_.enable();
     break;
   
   case State::TakingTree:
-  case State::Stabilize:
   case State::Drop:
   case State::ReturnHome:
   case State::Error:

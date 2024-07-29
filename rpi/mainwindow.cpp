@@ -187,22 +187,22 @@ void MainWindow::onPeriodicUpdate()
   //   }
   //   sendCommand(samples);
   // } else {
-    unsigned long int est_simulation_time = arduino_model.time_ms - arduino_model.simulation_start;
-    double timeHint = static_cast<double>(est_simulation_time) / 1000.0;
+    // unsigned long int est_simulation_time = arduino_model.time_ms - arduino_model.simulation_start;
+    // double timeHint = static_cast<double>(est_simulation_time) / 1000.0;
 
-    bool match_success;
-    double simTime = simMatch(arduino_model.pendulum_angle, arduino_model.pendulum_dangle,
-                              timeHint, 20.0, match_success);
-    if(!match_success) {
-      qDebug()<<"Simulation match failed T_T "<<arduino_model.pendulum_angle<<",  "<<
-              arduino_model.pendulum_dangle<<",  "<<timeHint<<"\n";
-      sendState(State::Stabilize);
-      return;
-    }
+    // bool match_success;
+    // double simTime = simMatch(arduino_model.pendulum_angle, arduino_model.pendulum_dangle,
+    //                           timeHint, 20.0, match_success);
+    // if(!match_success) {
+    //   qDebug()<<"Simulation match failed T_T "<<arduino_model.pendulum_angle<<",  "<<
+    //           arduino_model.pendulum_dangle<<",  "<<timeHint<<"\n";
+    //   sendState(State::Stabilize);
+    //   return;
+    // }
 
-    // std::vector<double> accels = simulation.get_accels(simTime, );
-    double duration_s = static_cast<double>(COMMAND_DURATION_MS) / 1000.0;
-    sendCommand(runSimulation(simTime, duration_s, N_ACCELS_SAMPLES, arduino_model.linSpeed, arduino_model.wheelAngSpeed));
+    // // std::vector<double> accels = simulation.get_accels(simTime, );
+    // double duration_s = static_cast<double>(COMMAND_DURATION_MS) / 1000.0;
+    // sendCommand(runSimulation(simTime, duration_s, N_ACCELS_SAMPLES, arduino_model.linSpeed, arduino_model.wheelAngSpeed));
   // }
 }
 double MainWindow::pidTune_fn(unsigned int time) const
@@ -363,7 +363,7 @@ void MainWindow::graphPosition(QJsonObject JsonObj)
   currentSpeed.addData(JsonObj[JSON_DWHEEL].toDouble());
   currentAccel.addData(JsonObj[JSON_DDWHEEL].toDouble());
   pidTarget.addData(JsonObj[JSON_GOAL].toDouble());
-  std::cout<<JsonObj[JSON_GOAL].toDouble()<<" vs "<<JsonObj[JSON_DWHEEL].toDouble()<<"\n";
+  // std::cout<<JsonObj[JSON_GOAL].toDouble()<<" vs "<<JsonObj[JSON_DWHEEL].toDouble()<<"\n";
   scenePosition.clear();
 
   switch(ui->Position_selector->currentIndex()) {
