@@ -283,7 +283,7 @@ public:
         statebox->setItemText(5, QCoreApplication::translate("MainWindow", "LastSwing", nullptr));
         statebox->setItemText(6, QCoreApplication::translate("MainWindow", "JustGonnaSendIt", nullptr));
         statebox->setItemText(7, QCoreApplication::translate("MainWindow", "JustGonnaSmoothIt", nullptr));
-        statebox->setItemText(8, QCoreApplication::translate("MainWindow", "GetToDrop", nullptr));
+        statebox->setItemText(8, QCoreApplication::translate("MainWindow", "BuildUp", nullptr));
         statebox->setItemText(9, QCoreApplication::translate("MainWindow", "Drop", nullptr));
         statebox->setItemText(10, QCoreApplication::translate("MainWindow", "ShortCircuitForward", nullptr));
         statebox->setItemText(11, QCoreApplication::translate("MainWindow", "ShortCircuitBackward", nullptr));

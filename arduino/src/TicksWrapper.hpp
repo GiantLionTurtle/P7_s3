@@ -23,15 +23,17 @@ struct TicksWrapper {
 
   }
 
-  void update(long long ticks_)
+  void update(long long ticks_, double dt)
   {
     last_speed = dticks();
     last = curr; 
     curr = ticks_;
 
+    double old_position = position_;
+    double old_speed = speed_;
     position_ = static_cast<double>(ticks())  * conversion_ratio + offset;
-    speed_    = static_cast<double>(dticks()) * conversion_ratio;
-    accel_    = static_cast<double>(ddticks())* conversion_ratio;
+    speed_ = (position_ - old_position) / dt;
+    accel_ = (speed_ - old_speed) / dt;
   }
 
   long long ticks() const { return curr; }

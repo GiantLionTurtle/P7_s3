@@ -47,8 +47,8 @@ const double pendulumPos_stabilized = 0.05;
 
 const double freq_mult = 4.16;
 
-const double sendItSpeed = 0.2;
-const double deceleration = 0.0002;
+const double sendItSpeed = 8;
+const double deceleration = 0.008;
 
 // !Modelisation
 
@@ -120,7 +120,7 @@ void setup()
   pendulumPot.calibrate(analogRead(PENDULUMPOT_PIN));
 
   // Initialisation du PID
-  pid_.setGains(4, 2, 0.1);
+  pid_.setGains(0.1, 2, 0.1);
   // Attache des fonctions de retour
   pid_.setEpsilon(0.0);
   pid_.setPeriod(UPDATE_RATE_MS);
@@ -133,13 +133,13 @@ void setup()
 
 void loop()
 {
-
-  if(millis()-last_send_time_ms < UPDATE_RATE_MS) {
+  double dt = millis() - last_send_time_ms;
+  if(dt < UPDATE_RATE_MS) {
     return;
   }
-
-  pendulumPot.update(analogRead(PENDULUMPOT_PIN));
-  wheelTicks.update(AX_.readEncoder(MOTOR_PIN));
+  dt /= 1000.0;
+  pendulumPot.update(analogRead(PENDULUMPOT_PIN), dt);
+  wheelTicks.update(AX_.readEncoder(MOTOR_PIN), dt);
   update_eot();
 
   update_state();
@@ -168,7 +168,7 @@ void loop()
       digitalWrite(MAGNET_PIN, HIGH);
     }
     break;
-  case State::GetToDrop:
+  case State::BuildUp:
     AX_.setMotorPWM(MOTOR_PIN, wheelTicks.position() < dropPos ? 0.1 : -0.1);
     break;
   case State::Drop:
@@ -378,7 +378,7 @@ void update_state()
   switch(state) {
   case State::Stabilize:
     if(stable()) {
-      set_state(State::GetToDrop);
+      set_state(State::BuildUp);
     }
     break;
   case State::ReturnHome:
@@ -413,7 +413,7 @@ void update_state()
       set_state(State::Stabilize);
     }
     break;
-  case State::GetToDrop:
+  case State::BuildUp:
     if(is_at(dropPos)) {
       set_state(State::Drop);
     }
@@ -456,7 +456,7 @@ void set_state(State newState)
   case State::Stabilize:
     pid_.enable();
     break;
-  case State::GetToDrop:
+  case State::BuildUp:
   case State::TakingTree:
   case State::Drop:
   case State::ReturnHome:

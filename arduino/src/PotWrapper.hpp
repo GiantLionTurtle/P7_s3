@@ -22,12 +22,13 @@ struct PotWrapper {
 
   }
 
-  void update(int val)
+  void update(int val, double dt)
   {
     curr = val;
 
-    speed_    = map_me_up(curr) - position_;
+    double old_position = position_;
     position_ = position(curr);
+    speed_    = (old_position - position_) / dt;
   }
 
   void calibrate(int val)
