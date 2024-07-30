@@ -34,6 +34,8 @@ class PID
     */
     void enable();
 
+    bool enabled() const { return enable_; }
+
     /** Method to disable the object
     */
     void disable();
@@ -167,10 +169,10 @@ class PID
     bool atGoal_ = false; // Flag to know if at goal 
     
     double dt_; // Theoric time between 2 measurments
-    unsigned long dtMs_; // Periode between commands
-    unsigned long actualDt_; // Actual periode between last command
-    unsigned long measureTime_ = 0; // Time for next iteration 
-    unsigned long lastMeasureTime_ = 0; // Time of last iteration 
+    unsigned long long dtMs_; // Periode between commands
+    unsigned long long actualDt_; // Actual periode between last command
+    unsigned long long measureTime_ = 0; // Time for next iteration 
+    unsigned long long lastMeasureTime_ = 0; // Time of last iteration 
 
 
 
