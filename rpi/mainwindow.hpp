@@ -60,6 +60,8 @@ private slots:
   void set_D(int slider);
   void toggle_PIDTune();
   void eStop();
+  void go();
+  void setup();
 
 private:
   void connectTimers(int updateRate);

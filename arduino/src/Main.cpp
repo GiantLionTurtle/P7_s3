@@ -29,18 +29,18 @@ const double pendulumLength = 0.565; // m
 const double axisHeight = 0.97;
 const double ticksPerTurn = 3200;
 const double axisRelPos = 0.095;
-const double targetLift = 0.04; // 2cm
+const double targetLift = 0.01; // 2cm
 const double angleForTargetLift = acos((pendulumLength-targetLift) / pendulumLength);
-const double angleWellOverTargetLift = acos((pendulumLength-targetLift*10) / pendulumLength);
+const double angleWellOverTargetLift = acos((pendulumLength-targetLift*3) / pendulumLength);
 
 const double homePosOffsetTreshold = 0.05; // Treshold after which we activate a bias on return swings
 const double positionAccuracy = 0.01; // +/- 1 cm
 
 const double obstaclePos = 0.6;
 const double dropPos = 1.2;
-const double homePos = obstaclePos - sqrt(2*targetLift-targetLift*targetLift)- axisRelPos-0.05;
+const double homePos = obstaclePos - sqrt(2*targetLift-targetLift*targetLift)- axisRelPos;
 
-const double stabilization_coeff = 0.1;
+const double stabilization_coeff = 0.05;
 const double boring_swing_coeff = -0.1;
 const double pendulumSpeed_stabilized = 0.005; // rad/s
 const double pendulumPos_stabilized = 0.05;
@@ -48,6 +48,7 @@ const double pendulumPos_stabilized = 0.05;
 const double freq_mult = 4.16;
 
 const double sendItSpeed = 0.2;
+const double deceleration = 0.0002;
 
 // !Modelisation
 
@@ -157,6 +158,7 @@ void loop()
     break;
   case State::Stabilize:
     pid_.setGoal(stabilize());
+    // AX_.setMotorPWM(MOTOR_PIN, stabilize());
     break;
   case State::TakingTree:
     AX_.setMotorPWM(MOTOR_PIN, 0.0);
@@ -174,6 +176,9 @@ void loop()
     break;
   case State::JustGonnaSendIt:
     pid_.setGoal(sendItSpeed);
+    break;
+  case State::JustGonnaSmoothIt:
+    pid_.setGoal(max(sendItSpeed-static_cast<double>((millis()-state_start_ms))*deceleration, 0));
     break;
   case State::ShortCircuitBackward:
     AX_.setMotorPWM(MOTOR_PIN, -0.1);
@@ -315,7 +320,7 @@ bool stable()
 }
 bool is_at(double pos)
 {
-  return abs(wheelTicks.position()-homePos) < positionAccuracy;
+  return abs(wheelTicks.position()-pos) < positionAccuracy;
 }
 double stabilize()
 {
@@ -332,7 +337,7 @@ double boring_swing()
     oscilSign = sign;
     oscilCount++;
   }
-  if(wheelTicks.position() > homePos+904 && sign == -1) {
+  if(wheelTicks.position() > homePos+homePosOffsetTreshold && sign == -1) {
     base -= 0.03;
   }/* else if(wheelTicks.position() < homePos-0.05 && sign == 1) {
     base += 0.03;
@@ -394,12 +399,17 @@ void update_state()
     }
     break;
   case State::LastSwing:
-    if(oscilCount >= sendItAtOscil && pendulumPot.position() > angleForTargetLift) {
+    if(oscilCount >= sendItAtOscil && abs(pendulumPot.position()) > 0.05) {
       set_state(State::JustGonnaSendIt);
     }
     break;
   case State::JustGonnaSendIt:
-    if(/*dropBox.contains(EOTPos) || */wheelTicks.position() > dropPos) {
+    if(/*dropBox.contains(EOTPos) || */wheelTicks.position() > obstaclePos) {
+      set_state(State::JustGonnaSmoothIt);
+    }
+    break;
+  case State::JustGonnaSmoothIt:
+    if(pid_.getGoal() <= 0.00001 || wheelTicks.position() > dropPos) {
       set_state(State::Stabilize);
     }
     break;
@@ -442,6 +452,7 @@ void set_state(State newState)
     oscilSign = 0;
   case State::LastSwing:
   case State::JustGonnaSendIt:
+  case State::JustGonnaSmoothIt:
   case State::Stabilize:
     pid_.enable();
     break;
@@ -459,5 +470,7 @@ void set_state(State newState)
     break;
   }
   state = newState;
-  state_start_ms = millis();
+
+  if(newState != State::LastSwing)
+    state_start_ms = millis();
 }

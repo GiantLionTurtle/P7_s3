@@ -57,6 +57,8 @@ public:
     QLabel *D_label;
     QLabel *label_2;
     QLabel *Position_label;
+    QPushButton *Go_btn;
+    QPushButton *Setup_btn;
 
     void setupUi(QMainWindow *MainWindow)
     {
@@ -179,6 +181,9 @@ public:
         statebox->addItem(QString());
         statebox->addItem(QString());
         statebox->addItem(QString());
+        statebox->addItem(QString());
+        statebox->addItem(QString());
+        statebox->addItem(QString());
         statebox->setObjectName(QString::fromUtf8("statebox"));
         QSizePolicy sizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
         sizePolicy.setHorizontalStretch(0);
@@ -235,6 +240,16 @@ public:
 
         gridLayout->addWidget(Position_label, 6, 4, 1, 1);
 
+        Go_btn = new QPushButton(centralWidget);
+        Go_btn->setObjectName(QString::fromUtf8("Go_btn"));
+
+        gridLayout->addWidget(Go_btn, 3, 3, 1, 1);
+
+        Setup_btn = new QPushButton(centralWidget);
+        Setup_btn->setObjectName(QString::fromUtf8("Setup_btn"));
+
+        gridLayout->addWidget(Setup_btn, 3, 4, 1, 1);
+
         MainWindow->setCentralWidget(centralWidget);
 
         retranslateUi(MainWindow);
@@ -265,11 +280,14 @@ public:
         statebox->setItemText(2, QCoreApplication::translate("MainWindow", "ReturnHome", nullptr));
         statebox->setItemText(3, QCoreApplication::translate("MainWindow", "TakingTree", nullptr));
         statebox->setItemText(4, QCoreApplication::translate("MainWindow", "Swinging", nullptr));
-        statebox->setItemText(5, QCoreApplication::translate("MainWindow", "JustGonnaSendIt", nullptr));
-        statebox->setItemText(6, QCoreApplication::translate("MainWindow", "Drop", nullptr));
-        statebox->setItemText(7, QCoreApplication::translate("MainWindow", "ShortCircuitForward", nullptr));
-        statebox->setItemText(8, QCoreApplication::translate("MainWindow", "ShortCircuitBackward", nullptr));
-        statebox->setItemText(9, QCoreApplication::translate("MainWindow", "Error", nullptr));
+        statebox->setItemText(5, QCoreApplication::translate("MainWindow", "LastSwing", nullptr));
+        statebox->setItemText(6, QCoreApplication::translate("MainWindow", "JustGonnaSendIt", nullptr));
+        statebox->setItemText(7, QCoreApplication::translate("MainWindow", "JustGonnaSmoothIt", nullptr));
+        statebox->setItemText(8, QCoreApplication::translate("MainWindow", "GetToDrop", nullptr));
+        statebox->setItemText(9, QCoreApplication::translate("MainWindow", "Drop", nullptr));
+        statebox->setItemText(10, QCoreApplication::translate("MainWindow", "ShortCircuitForward", nullptr));
+        statebox->setItemText(11, QCoreApplication::translate("MainWindow", "ShortCircuitBackward", nullptr));
+        statebox->setItemText(12, QCoreApplication::translate("MainWindow", "Error", nullptr));
 
         label_6->setText(QCoreApplication::translate("MainWindow", "Distance parcourrue", nullptr));
         label_9->setText(QCoreApplication::translate("MainWindow", "Angle pendule", nullptr));
@@ -278,6 +296,8 @@ public:
         D_label->setText(QCoreApplication::translate("MainWindow", "TextLabel", nullptr));
         label_2->setText(QCoreApplication::translate("MainWindow", "Position", nullptr));
         Position_label->setText(QCoreApplication::translate("MainWindow", "TextLabel", nullptr));
+        Go_btn->setText(QCoreApplication::translate("MainWindow", "Goooo", nullptr));
+        Setup_btn->setText(QCoreApplication::translate("MainWindow", "Setup", nullptr));
     } // retranslateUi
 
 };

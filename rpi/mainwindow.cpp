@@ -276,6 +276,8 @@ void MainWindow::connectButtons()
 {
   connect(ui->PIDtune_btn, SIGNAL(clicked()), this, SLOT(toggle_PIDTune()));
   connect(ui->Stop_btn, SIGNAL(clicked()), this, SLOT(eStop()));
+  connect(ui->Go_btn, SIGNAL(clicked()), this, SLOT(go()));
+  connect(ui->Setup_btn, SIGNAL(clicked()), this, SLOT(setup()));
 }
 
 void MainWindow::sendMessage(QString msg)
@@ -354,6 +356,14 @@ void MainWindow::toggle_PIDTune()
 void MainWindow::eStop()
 {
   sendState(State::Error);
+}
+void MainWindow::go()
+{
+  sendState(State::Swinging);
+}
+void MainWindow::setup()
+{
+  sendState(State::ReturnHome);
 }
 void MainWindow::graphPosition(QJsonObject JsonObj)
 {

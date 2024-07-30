@@ -8,10 +8,10 @@
 #define UPDATE_RATE_MS 25
 
 // Must be kept in sync with rpi's State.hpp
-enum class State { Ready, Stabilize, ReturnHome, TakingTree, Swinging, LastSwing, JustGonnaSendIt, GetToDrop, Drop, ShortCircuitForward, ShortCircuitBackward, Error };
+enum class State { Ready, Stabilize, ReturnHome, TakingTree, Swinging, LastSwing, JustGonnaSendIt, JustGonnaSmoothIt, GetToDrop, Drop, ShortCircuitForward, ShortCircuitBackward, Error };
 
 constexpr double startPos = 0.0;
-constexpr double wheelRadius = 0.051; // m
+constexpr double wheelRadius = 0.05; // m
 
 #define JSON_TIME "t"
 #define JSON_GOAL "g"
