@@ -184,6 +184,7 @@ public:
         statebox->addItem(QString());
         statebox->addItem(QString());
         statebox->addItem(QString());
+        statebox->addItem(QString());
         statebox->setObjectName(QString::fromUtf8("statebox"));
         QSizePolicy sizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
         sizePolicy.setHorizontalStretch(0);
@@ -278,16 +279,17 @@ public:
         statebox->setItemText(0, QCoreApplication::translate("MainWindow", "Ready", nullptr));
         statebox->setItemText(1, QCoreApplication::translate("MainWindow", "Stabilize", nullptr));
         statebox->setItemText(2, QCoreApplication::translate("MainWindow", "ReturnHome", nullptr));
-        statebox->setItemText(3, QCoreApplication::translate("MainWindow", "TakingTree", nullptr));
-        statebox->setItemText(4, QCoreApplication::translate("MainWindow", "Swinging", nullptr));
-        statebox->setItemText(5, QCoreApplication::translate("MainWindow", "LastSwing", nullptr));
-        statebox->setItemText(6, QCoreApplication::translate("MainWindow", "JustGonnaSendIt", nullptr));
-        statebox->setItemText(7, QCoreApplication::translate("MainWindow", "JustGonnaSmoothIt", nullptr));
-        statebox->setItemText(8, QCoreApplication::translate("MainWindow", "BuildUp", nullptr));
-        statebox->setItemText(9, QCoreApplication::translate("MainWindow", "Drop", nullptr));
-        statebox->setItemText(10, QCoreApplication::translate("MainWindow", "ShortCircuitForward", nullptr));
-        statebox->setItemText(11, QCoreApplication::translate("MainWindow", "ShortCircuitBackward", nullptr));
-        statebox->setItemText(12, QCoreApplication::translate("MainWindow", "Error", nullptr));
+        statebox->setItemText(3, QCoreApplication::translate("MainWindow", "GetToCalibratePos", nullptr));
+        statebox->setItemText(4, QCoreApplication::translate("MainWindow", "Calibrate", nullptr));
+        statebox->setItemText(5, QCoreApplication::translate("MainWindow", "TakingTree", nullptr));
+        statebox->setItemText(6, QCoreApplication::translate("MainWindow", "Swinging", nullptr));
+        statebox->setItemText(7, QCoreApplication::translate("MainWindow", "JustGonnaSendIt", nullptr));
+        statebox->setItemText(8, QCoreApplication::translate("MainWindow", "JustGonnaSmoothIt", nullptr));
+        statebox->setItemText(9, QCoreApplication::translate("MainWindow", "BuildUp", nullptr));
+        statebox->setItemText(10, QCoreApplication::translate("MainWindow", "Drop", nullptr));
+        statebox->setItemText(11, QCoreApplication::translate("MainWindow", "ShortCircuitForward", nullptr));
+        statebox->setItemText(12, QCoreApplication::translate("MainWindow", "ShortCircuitBackward", nullptr));
+        statebox->setItemText(13, QCoreApplication::translate("MainWindow", "Error", nullptr));
 
         label_6->setText(QCoreApplication::translate("MainWindow", "Distance parcourrue", nullptr));
         label_9->setText(QCoreApplication::translate("MainWindow", "Angle pendule", nullptr));

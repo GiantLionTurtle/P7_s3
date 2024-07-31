@@ -184,17 +184,22 @@
       </item>
       <item>
        <property name="text">
+        <string>GetToCalibratePos</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>Calibrate</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
         <string>TakingTree</string>
        </property>
       </item>
       <item>
        <property name="text">
         <string>Swinging</string>
-       </property>
-      </item>
-      <item>
-       <property name="text">
-        <string>LastSwing</string>
        </property>
       </item>
       <item>
