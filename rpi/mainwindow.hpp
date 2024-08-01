@@ -47,7 +47,7 @@ public:
 
   void onPeriodicUpdate();
 
-  void graphPosition(QJsonObject JsonObj);
+  void graphPosition();
 
 private slots:
   void receiveFromSerial(QString);
@@ -79,16 +79,24 @@ private:
   bool is_readingArduino_ {false }; // Reading flag to avoid callback loops
   SerialProtocol* serialCom;
 
+  QVector<QPointF> dataPot_;
   QLineSeries seriesPot_;
   QChart chartPot_;
 
-  QGraphicsScene scene;
-  QGraphicsScene scenePosition;
-  //Plot currentPot;
-  Plot currentPos;
-  Plot currentSpeed;
-  Plot currentAccel;
-  Plot pidTarget;
+  QLineSeries seriesPos_;
+  QVector<QPointF> dataPos_;
+  QVector<QPointF> dataVel_;
+  QVector<QPointF> dataAcc_;
+
+  QChart chartPos_;
+
+  // QGraphicsScene scene;
+  // QGraphicsScene scenePosition;
+  // //Plot currentPot;
+  // Plot currentPos;
+  // Plot currentSpeed;
+  // Plot currentAccel;
+  // Plot pidTarget;
   size_t lastUpdMillis { 0 };
 
   double dist_tot { 0 };

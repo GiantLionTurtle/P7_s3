@@ -10,8 +10,8 @@
 #include <SPI.h> // librairie Communication SPI
 #include <LibS3GRO.h>
 
-#define DROP_DELAY 1000 // ms
-#define TAKE_DELAY 4000 // ms
+#define DROP_DELAY 500 // ms
+#define TAKE_DELAY 2000 // ms
 
 #define PENDULUMPOT_PIN A7
 #define CLAWSERVO_PIN 8
@@ -26,7 +26,7 @@
 
 // Modelisation
 
-const double pendulumLength = 0.59; // m
+const double pendulumLength = 0.58; // m
 const double axisHeight = 0.97;
 const double ticksPerTurn = 3200;
 const double axisRelPos = 0.095;
@@ -42,20 +42,24 @@ const double obstaclePos = 0.6;
 const double dropPos = 1.2;
 const double homePos = obstaclePos - sqrt(2*targetLift-targetLift*targetLift)- axisRelPos-0.1;
 
-const double stabilization_coeff = 1.5;
-const double boring_swing_coeff = -0.1;
+const double stabilization_coeff = 1.8;
 const double pendulumSpeed_stabilized = 0.5; // rad/s
 const double pendulumPos_stabilized = 0.05;
 
-const double freq_mult = 1.0/sqrt(pendulumLength/9.81);
+const double freq_mult = 1.0/(2*PI*(sqrt(pendulumLength/9.81)));
+const double Tt = 2.25/freq_mult;
+const double Amp = acos((-targetLift/pendulumLength)+1)+0.25;
 
-const double sendItSpeed = 4.4;
-const double acceleration = 1.614;
-const double deceleration = 0.8;
+const double sendItSpeed = 5.0;
+const double acceleration = 2.2;
+const double deceleration = 1.6;
+
+double initSpeed = 0.0;
 
 // !Modelisation
 
 double maxSendedItSpeed = 0.0;
+double lastSwingSpeed = 0.0;
 
 ArduinoX AX_;                       // objet arduinoX
 Pince pince;
@@ -122,7 +126,7 @@ void setup()
   pendulumPot.calibrate(analogRead(PENDULUMPOT_PIN));
 
   // Initialisation du PID
-  pidSpeed.setGains(0.55, 0.2, 0.015);
+  pidSpeed.setGains(0.6, 0.2, 0.015);
   // Attache des fonctions de retour
   pidSpeed.setEpsilon(0.0);
   pidSpeed.setPeriod(UPDATE_RATE_MS);
@@ -130,20 +134,11 @@ void setup()
   pidSpeed.setMeasurementFunc([]() -> double { return wheelTicks.speed(); }); //acceleration lineaire
   pidSpeed.setCommandFunc([](double pidSpeedvoltage){ AX_.setMotorPWM(MOTOR_PIN, pidSpeedvoltage); });
 
-  pidPos.setGains(1.4, 0.25, 0.006);
+  pidPos.setGains(1.2, 0.7, 0.009);
   pidPos.setEpsilon(0.0);
   pidPos.setPeriod(UPDATE_RATE_MS);
   pidPos.setMeasurementFunc([]() -> double { return wheelTicks.position(); });
-  pidPos.setCommandFunc([](double pidSpeedvoltage) { 
-    // if(pidSpeedvoltage < -0.6) {
-    //   pidSpeedvoltage = -0.6;
-    // } else if(pidSpeedvoltage > 0.6) {
-    //   pidSpeedvoltage = 0.6;
-    // }
-    AX_.setMotorPWM(MOTOR_PIN, pidSpeedvoltage); 
-  });
-
-  // sendMsg();
+  pidPos.setCommandFunc([](double pidSpeedvoltage) { AX_.setMotorPWM(MOTOR_PIN, pidSpeedvoltage); });
 }
 
 void loop()
@@ -163,6 +158,7 @@ void loop()
   case State::Swinging:
 #ifdef BORING_SWING
     pidSpeed.setGoal(boring_swing());
+    lastSwingSpeed = wheelTicks.speed();
 #else
     pidSpeed.setGoal(command.get_accel(millis()));
 #endif
@@ -183,7 +179,7 @@ void loop()
     break;
   case State::TakingTree:
     AX_.setMotorPWM(MOTOR_PIN, 0.0);
-    if(millis()-state_start_ms < TAKE_DELAY/2) {
+    if(millis()-state_start_ms < (TAKE_DELAY-100)) {
       pince.Open();
     } else {
       pince.close();
@@ -198,7 +194,7 @@ void loop()
     break;
   case State::JustGonnaSendIt:
     maxSendedItSpeed = max(maxSendedItSpeed, wheelTicks.speed());
-    pidSpeed.setGoal(min(sendItSpeed, static_cast<double>(millis()-state_start_ms)/1000.0*acceleration));
+    pidSpeed.setGoal(min(sendItSpeed, initSpeed + static_cast<double>(millis()-state_start_ms)/1000.0*acceleration));
     break;
   case State::JustGonnaSmoothIt:
     pidSpeed.setGoal(max(maxSendedItSpeed-static_cast<double>((millis()-state_start_ms))/1000.0*deceleration, 0));
@@ -224,6 +220,7 @@ void loop()
   // AX_.setMotorPWM(MOTOR_PIN, 0.5);
 
   sendMsg();
+  // {"s":4}
   // Serial.println("Pouet");
   // Serial.println(pendulumPot.speed(), 8);
   // Serial.println(digitalRead(BACKWARD_PIN));
@@ -272,7 +269,7 @@ void manageSerial()
   if(!parse_msg.isNull()) {
     pidSpeed.setKd(parse_msg.as<double>());
   }
-
+  // 
   // Parse msg for command input
   // first start time, then acceleration points
   parse_msg = doc[JSON_COMMAND_START];
@@ -354,7 +351,8 @@ double stabilize()
 double boring_swing()
 {
   double swing_time = static_cast<double>(millis() - state_start_ms) / 1000.0;
-  double base = sin(freq_mult * swing_time) * swing_time / 2.0;
+  //double base = sin(freq_mult * swing_time)*swing_time/2;
+  double base = Amp*(Tt*sin(14.14*swing_time/Tt)+14.14*swing_time*cos(14.14*swing_time/Tt))/pow(Tt, 2);
 
   int sign = base < 0.0 ? -1 : 1;
   if(sign != oscilSign) {
@@ -366,20 +364,6 @@ double boring_swing()
   // }
 
   return base;
-
-  // return (sin(freq_mult*swing_time) + freq_mult*swing_time*cos(freq_mult*swing_time))/50.0;
-  /*
-    if(stable()) {
-    return 0.05;    
-  }
-  int mult = pendulumPot.speed() < 0 ? -1 : 1;
-  double add = 0.0;
-  if(abs(wheelTicks.position() - homePos) > 0.05) {
-    add = wheelTicks.position() > (homePos) ? -0.03 : 0.03;
-  }
-  return boring_swing_coeff * cos(pendulumPot.position()) * mult + add;
-
-  */
 }
 void update_eot()
 {
@@ -410,20 +394,21 @@ void update_state()
     }
     break;
   case State::Calibrate:
-    if(abs(wheelTicks.speed()) < 0.0000001 && millis() - state_start_ms > 100) {
+    if(abs(wheelTicks.speed()) < 0.00000001 && millis() - state_start_ms > 200) {
       AX_.resetEncoder(MOTOR_PIN);
       set_state(State::ReturnHome);
     }
     break;
   case State::ReturnHome:
     if(is_at(homePos) && wheelTicks.speed() < 0.001) {
-      set_state(State::Ready);
+      // set_state(State::Ready);
+      set_state(State::TakingTree);
     }
     break;
   case State::TakingTree:
     if(millis() - state_start_ms > TAKE_DELAY) {
-      // set_state(State::Swinging);
-      set_state(State::Ready);
+      set_state(State::Swinging);
+      // set_state(State::Ready);
     }
     break;
   case State::Swinging:
@@ -432,15 +417,29 @@ void update_state()
     //   set_state(State::LastSwing);
     // }
     // if(oscilCount >= sendItAtOscil && abs(pendulumPot.position()) > 0.01) {
-    // if(oscilCount >= sendItAtOscil && pendulumPot.position() < 0.0 && pendulumPot.speed() < 0.0) {  
-    if(pendulumPot.position() >= 0.14 && pendulumPot.speed() >= 1.3) {
-      set_state(State::JustGonnaSendIt);
+    // if(oscilCount >= sendItAtOscil && pendulumPot.position() < 0.0 && pendulumPot.speed() < 0.0) { 
+    // if(pendulumPot.position() >= 0.14)
+    //   Serial.println("Position ok");
+    // if(pendulumPot.speed() >= 1.3)
+    //   Serial.println("Vel ok");
+    //maxAngularVelReached = max(maxAngularVelReached, pendulumPot.speed());
+    //maxAngleReached= max(maxAngleReached, abs(pendulumPot.position()));
+    // if(pendulumPot.position() <= -0.3 && pendulumPot.speed() <= -4) {
+    //if(pendulumPot.position() >= 0.14 && pendulumPot.speed() <= -1.3) {
+    if((millis() - state_start_ms)/1000.0 > Tt-0.75)
+    {
+        set_state(State::JustGonnaSendIt);
+        initSpeed = wheelTicks.speed();
+        // Serial.println("End");
+        // Serial.println(pendulumPot.position()*180/PI);
+        // Serial.println(pendulumPot.speed()*180/PI);
     }
 
     break;
   case State::JustGonnaSendIt:
-    if(/*dropBox.contains(EOTPos) || */wheelTicks.position() > obstaclePos) {
-      set_state(State::JustGonnaSmoothIt);
+    if(/*dropBox.contains(EOTPos) || */wheelTicks.position() > obstaclePos + 0.25) {
+        set_state(State::JustGonnaSmoothIt);
+        initSpeed = 0.0;
     }
     break;
   case State::JustGonnaSmoothIt:

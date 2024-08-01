@@ -8,9 +8,10 @@ struct ArduinoModel {
   unsigned long long time_ms, simulation_start;
   double pendulum_angle;
   double pendulum_dangle;
-  double wheelAngSpeed;
+  double wheel_speed;
   double linSpeed;
   double wheel_pos;
+  double wheel_accel;
   State state;
 
   void set_state(State state_)
@@ -20,10 +21,10 @@ struct ArduinoModel {
       simulation_start = time_ms;
     }
   }
-  void set_wheel_angSpeed(double wheelAngSpeed_)
+  void set_wheel_angSpeed(double wheel_speed_)
   {
-    wheelAngSpeed = wheelAngSpeed_;
-    linSpeed = wheelAngSpeed * wheelRadius;
+    wheel_speed = wheel_speed_;
+    linSpeed = wheel_speed * wheelRadius;
   }
 };
 

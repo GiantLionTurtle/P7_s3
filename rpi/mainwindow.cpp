@@ -16,33 +16,33 @@
 // actual PID gain
 #define P_SLIDER_CONV 10.0f
 #define I_SLIDER_CONV 10.0f
-#define D_SLIDER_CONV 10.0f
+#define D_SLIDER_CONV 100.0f
 
 MainWindow::MainWindow(QString portName, int updateRate, QWidget *parent)
   : QMainWindow(parent)
-  , currentPos(0.1, 0.1)
+  // , currentPos(0.1, 0.1)
  // , currentPot(0, 0.2618)
-  , currentSpeed(0.01, 0.01)
-  , currentAccel(0.001, 0.001)
-  , pidTarget(0.001, 0.001)
+  // , currentSpeed(0.01, 0.01)
+  // , currentAccel(0.001, 0.001)
+  // , pidTarget(0.001, 0.001)
 {
   // Initialisation du UI
   ui = new Ui::MainWindow;
   ui->setupUi(this);
 
-  // Initialisation du graphique
-    // Étape 2.2: Associer chart_ au QChartView dans l'interface
-    ui->Pot_view->setChart(&chartPot_);
+  ui->Go_btn->setStyleSheet("QPushButton { background-color: rgb(80,200,100); border: none; }");
+  ui->Stop_btn->setStyleSheet("QPushButton { background-color: rgb(200,100,80); border: none; }");
 
-    // Étape 2.3: Donner un titre au graphique
-   chartPot_.setTitle("Angle Potentiometre");
+  // Setup Pot graph
+  ui->Pot_view->setChart(&chartPot_);
+  // chartPot_.setTitle("Angle Potentiometre");
+  chartPot_.legend()->hide();
+  chartPot_.addSeries(&seriesPot_);
 
-    // Étape 2.4: Cacher la légende
-   chartPot_.legend()->hide();
-
-    // Étape 2.5: Associer series_ à chart_
-   chartPot_.addSeries(&seriesPot_);
-
+  // Setup pos, speed, accel graph
+  ui->Position_view->setChart(&chartPos_);
+  chartPos_.legend()->hide();
+  chartPos_.addSeries(&seriesPos_);
 
   // Fonctions de connections events/slots
   connectTimers(updateRate);
@@ -108,6 +108,9 @@ void MainWindow::receiveFromSerial(QString msg) {
       // if(!jsonObj["dlin"].isNull()) {
         // arduino_model.linSpeed = jsonObj["dlin"].toDouble();
       // }
+      if(!jsonObj[JSON_DDWHEEL].isNull()) {
+        arduino_model.wheel_accel = jsonObj[JSON_DDWHEEL].toDouble();
+      }
       if(!jsonObj[JSON_DWHEEL].isNull()) {
         arduino_model.set_wheel_angSpeed(jsonObj[JSON_DWHEEL].toDouble());
       }
@@ -143,13 +146,6 @@ void MainWindow::receiveFromSerial(QString msg) {
       }
       if(jsonObj.contains(JSON_PENDULUM)) {
           arduino_model.pendulum_angle = jsonObj[JSON_PENDULUM].toDouble();
-
-          seriesPot_.append(arduino_model.time_ms, arduino_model.pendulum_angle);
-
-          // Étape 3. Ajouter les données à series_ et mettre à jour chart_
-          chartPot_.removeSeries(&seriesPot_);
-          chartPot_.addSeries(&seriesPot_);
-          chartPot_.createDefaultAxes();
       }
       // Plot data
       // scene.clear();
@@ -157,7 +153,7 @@ void MainWindow::receiveFromSerial(QString msg) {
       // currentPot.draw(&scene);
       // // Ajouter donnee au chart
 
-      graphPosition(jsonObj);
+      graphPosition();
 
       is_readingArduino_ = false;
     } else {
@@ -202,7 +198,7 @@ void MainWindow::onPeriodicUpdate()
 
     // // std::vector<double> accels = simulation.get_accels(simTime, );
     // double duration_s = static_cast<double>(COMMAND_DURATION_MS) / 1000.0;
-    // sendCommand(runSimulation(simTime, duration_s, N_ACCELS_SAMPLES, arduino_model.linSpeed, arduino_model.wheelAngSpeed));
+    // sendCommand(runSimulation(simTime, duration_s, N_ACCELS_SAMPLES, arduino_model.linSpeed, arduino_model.wheel_speed));
   // }
 }
 double MainWindow::pidTune_fn(unsigned int time) const
@@ -234,27 +230,27 @@ void MainWindow::connectPlotBoxe()
 {
   
   //ui->Pot_view->setScene(&scene);
-  ui->Position_view->setScene(&scenePosition);
+  // ui->Position_view->setScene(&scenePosition);
   // Plot data
   // currentPot.setDataLen(300);
   // currentPot.setColor(255,0,0);
   // currentPot.setGain(25);
 
-  currentPos.setDataLen(300);
-  currentPos.setColor(255,0,0);
-  currentPos.setGain(40);
+  // currentPos.setDataLen(300);
+  // currentPos.setColor(255,0,0);
+  // currentPos.setGain(40);
 
-  currentSpeed.setDataLen(300);
-  currentSpeed.setColor(0,255,0);
-  currentSpeed.setGain(5000);
+  // currentSpeed.setDataLen(300);
+  // currentSpeed.setColor(0,255,0);
+  // currentSpeed.setGain(5000);
 
-  currentAccel.setDataLen(300);
-  currentAccel.setColor(0,0,255);
-  currentAccel.setGain(100000);
+  // currentAccel.setDataLen(300);
+  // currentAccel.setColor(0,0,255);
+  // currentAccel.setGain(100000);
 
-  pidTarget.setDataLen(300);
-  pidTarget.setColor(0,120,120);
-  pidTarget.setGain(currentAccel.getGain());
+  // pidTarget.setDataLen(300);
+  // pidTarget.setColor(0,120,120);
+  // pidTarget.setGain(currentAccel.getGain());
 }
 void MainWindow::connectComboBox()
 {
@@ -359,33 +355,60 @@ void MainWindow::eStop()
 }
 void MainWindow::go()
 {
-  sendState(State::Swinging);
+  sendState(State::Calibrate);
 }
 void MainWindow::setup()
 {
   sendState(State::ReturnHome);
 }
-void MainWindow::graphPosition(QJsonObject JsonObj)
+void appendData_helper(QVector<QPointF>& data, QPointF pt, int maxlen = 100)
+{
+  if (data.length()>maxlen){
+    data.pop_front();
+  }
+  data.append(pt);
+}
+void make_lineSeries(QLineSeries& src, QVector<QPointF>& data)
+{
+  src.clear();
+  for(size_t i = 0; i < data.length(); ++i) {
+    src.append(data.at(i));
+  }
+}
+void MainWindow::graphPosition()
 {
   enum Kinds { Position, Speed, Acceleration };
 
-  currentPos.addData(JsonObj[JSON_WHEEL].toDouble());
-  currentSpeed.addData(JsonObj[JSON_DWHEEL].toDouble());
-  currentAccel.addData(JsonObj[JSON_DDWHEEL].toDouble());
-  pidTarget.addData(JsonObj[JSON_GOAL].toDouble());
-  // std::cout<<JsonObj[JSON_GOAL].toDouble()<<" vs "<<JsonObj[JSON_DWHEEL].toDouble()<<"\n";
-  scenePosition.clear();
+  const int dataLen = 100;
+  // Potentiomerte
+  appendData_helper(dataPot_, QPointF(arduino_model.time_ms, arduino_model.pendulum_angle));
+  chartPot_.removeSeries(&seriesPot_);
+  make_lineSeries(seriesPot_, dataPot_);
+  chartPot_.addSeries(&seriesPot_);
+  chartPot_.createDefaultAxes();
+
+
+  // Position and such
+
+  appendData_helper(dataPos_, QPointF(arduino_model.time_ms, arduino_model.wheel_pos));
+  appendData_helper(dataVel_, QPointF(arduino_model.time_ms, arduino_model.wheel_speed));
+  appendData_helper(dataAcc_, QPointF(arduino_model.time_ms, arduino_model.wheel_accel));
+ 
+  chartPos_.removeSeries(&seriesPos_);
 
   switch(ui->Position_selector->currentIndex()) {
     case Position:
-      currentPos.draw(&scenePosition);
+      make_lineSeries(seriesPos_, dataPos_);
       break;
     case Speed:
-      currentSpeed.draw(&scenePosition);
-      pidTarget.draw(&scenePosition);
+      make_lineSeries(seriesPos_, dataVel_);
       break;
     case Acceleration:
-      currentAccel.draw(&scenePosition);
+      make_lineSeries(seriesPos_, dataAcc_);
       break;
   }
+
+  chartPos_.addSeries(&seriesPos_);
+  chartPos_.createDefaultAxes();
+
 }

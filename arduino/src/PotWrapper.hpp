@@ -28,7 +28,7 @@ struct PotWrapper {
 
     double old_position = position_;
     position_ = position(curr);
-    speed_    = (old_position - position_) / dt;
+    speed_    = (position_-old_position) / dt;
   }
 
   void calibrate(int val)
